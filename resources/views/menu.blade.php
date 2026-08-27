@@ -5,7 +5,7 @@
 @section('content')
     <div class="mb-6">
         <a href="{{ route('home') }}"
-           class="inline-flex items-center gap-1.5 text-sm font-medium text-ink-500 transition hover:text-brand-700">
+           class="inline-flex items-center gap-1.5 text-sm font-medium text-ink-500 transition hover:text-deep-700">
             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="m15 18-6-6 6-6"/>
@@ -70,7 +70,7 @@
                     </h2>
 
                     @if ($isToday)
-                        <span class="badge bg-brand-100 text-brand-800">сьогодні</span>
+                        <span class="badge bg-brand-100 text-deep-800">сьогодні</span>
                     @endif
                 </span>
 

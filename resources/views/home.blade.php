@@ -21,20 +21,20 @@
                      alt="" loading="lazy"
                      class="h-16 w-16 shrink-0 rounded-xl object-cover ring-1 ring-ink-200">
             @else
-                <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-2xl font-bold text-brand-600">
+                <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-2xl font-bold text-deep-800">
                     {{ mb_substr($supplier->name, 0, 1) }}
                 </div>
             @endif
 
             <div class="min-w-0 flex-1">
-                <div class="text-lg font-semibold group-hover:text-brand-700">{{ $supplier->name }}</div>
+                <div class="text-lg font-semibold group-hover:text-deep-700">{{ $supplier->name }}</div>
 
                 @if ($supplier->description)
                     <div class="mt-0.5 line-clamp-2 text-sm text-ink-500">{{ $supplier->description }}</div>
                 @endif
             </div>
 
-            <svg class="h-5 w-5 shrink-0 text-ink-300 transition group-hover:translate-x-0.5 group-hover:text-brand-500"
+            <svg class="h-5 w-5 shrink-0 text-ink-300 transition group-hover:translate-x-0.5 group-hover:text-deep-500"
                  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="m9 18 6-6-6-6"/>

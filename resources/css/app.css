@@ -6,38 +6,49 @@
 @source '../**/*.js';
 
 /*
-| Палітра кабінету учня.
+| Палітра за чинним сайтом школи (zp.itstep.school).
 |
-| Основний колір — теплий помаранчевий: він асоціюється з їжею й апетитом,
-| і водночас достатньо контрастний для кнопок. Зелений лишаємо для успіху,
-| червоний для помилок і скасувань.
+| brand — салатовий #C1FA1E з кнопок сайту. Він дуже світлий, тому текст
+| на ньому завжди темний: білий на такому фоні нечитабельний.
+| deep  — темно-зелений #034431: шапка, ціни, важливі акценти.
 */
 @theme {
     --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 
-    --color-brand-50: oklch(0.98 0.02 65);
-    --color-brand-100: oklch(0.95 0.05 65);
-    --color-brand-200: oklch(0.90 0.09 65);
-    --color-brand-300: oklch(0.83 0.13 62);
-    --color-brand-400: oklch(0.76 0.16 55);
-    --color-brand-500: oklch(0.70 0.19 48);
-    --color-brand-600: oklch(0.63 0.19 43);
-    --color-brand-700: oklch(0.53 0.17 40);
-    --color-brand-800: oklch(0.44 0.14 40);
-    --color-brand-900: oklch(0.37 0.11 41);
+    --color-brand-50: oklch(0.98 0.04 122);
+    --color-brand-100: oklch(0.96 0.08 122);
+    --color-brand-200: oklch(0.94 0.14 122);
+    --color-brand-300: oklch(0.92 0.19 123);
+    --color-brand-400: oklch(0.90 0.23 124);
+    --color-brand-500: oklch(0.89 0.25 125);   /* #C1FA1E */
+    --color-brand-600: oklch(0.82 0.23 126);
+    --color-brand-700: oklch(0.70 0.19 128);
+    --color-brand-800: oklch(0.56 0.15 130);
+    --color-brand-900: oklch(0.45 0.12 132);
 
-    /* Тепла нейтральна замість холодної zinc — м'якше поєднується з помаранчевим. */
-    --color-ink-50: oklch(0.98 0.003 60);
-    --color-ink-100: oklch(0.96 0.004 60);
-    --color-ink-200: oklch(0.92 0.006 60);
-    --color-ink-300: oklch(0.86 0.008 60);
-    --color-ink-400: oklch(0.70 0.010 60);
-    --color-ink-500: oklch(0.56 0.012 60);
-    --color-ink-600: oklch(0.45 0.012 60);
-    --color-ink-700: oklch(0.37 0.011 60);
-    --color-ink-800: oklch(0.27 0.009 60);
-    --color-ink-900: oklch(0.20 0.008 60);
+    --color-deep-50: oklch(0.96 0.02 165);
+    --color-deep-100: oklch(0.92 0.04 165);
+    --color-deep-200: oklch(0.84 0.06 165);
+    --color-deep-300: oklch(0.72 0.08 165);
+    --color-deep-400: oklch(0.58 0.09 165);
+    --color-deep-500: oklch(0.46 0.09 165);
+    --color-deep-600: oklch(0.38 0.08 165);
+    --color-deep-700: oklch(0.32 0.07 164);   /* #034431 */
+    --color-deep-800: oklch(0.26 0.06 164);
+    --color-deep-900: oklch(0.21 0.05 164);
+
+    /* Нейтральна з ледь помітним зеленуватим відтінком — під основну гаму. */
+    --color-ink-50: oklch(0.98 0.002 160);
+    --color-ink-100: oklch(0.96 0.003 160);
+    --color-ink-200: oklch(0.92 0.004 160);
+    --color-ink-300: oklch(0.86 0.006 160);
+    --color-ink-400: oklch(0.70 0.008 160);
+    --color-ink-500: oklch(0.56 0.010 160);
+    --color-ink-600: oklch(0.45 0.010 160);
+    --color-ink-700: oklch(0.37 0.009 160);
+    --color-ink-800: oklch(0.27 0.008 160);
+    --color-ink-900: oklch(0.18 0.006 160);
 }
 
 /*
@@ -67,14 +78,22 @@
     }
 
     .card-hover {
-        @apply transition hover:border-brand-300 hover:shadow-md;
+        @apply transition hover:border-deep-300 hover:shadow-md;
     }
 
+    /* Текст темний: салатовий надто світлий, білий на ньому не читається. */
     .btn-primary {
-        @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-3
+        @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand-500 px-5 py-3
+               text-base font-bold text-deep-900 shadow-sm transition
+               hover:bg-brand-400 active:scale-[0.99]
+               focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-deep-700;
+    }
+
+    /* Для дій на темному тлі й другорядних підтверджень. */
+    .btn-deep {
+        @apply inline-flex items-center justify-center gap-2 rounded-xl bg-deep-700 px-5 py-3
                text-base font-semibold text-white shadow-sm transition
-               hover:bg-brand-700 active:scale-[0.99]
-               focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600;
+               hover:bg-deep-600 active:scale-[0.99];
     }
 
     .btn-secondary {
@@ -86,7 +105,7 @@
     .field {
         @apply w-full rounded-xl border border-ink-300 bg-white px-4 py-3 text-base text-ink-900
                transition placeholder:text-ink-400
-               focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-100;
+               focus:border-deep-500 focus:outline-none focus:ring-4 focus:ring-deep-100;
     }
 
     .badge {

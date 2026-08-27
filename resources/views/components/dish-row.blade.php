@@ -19,7 +19,7 @@
         <div class="font-medium leading-snug">{{ $dish->name }}</div>
 
         <div class="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm">
-            <span class="font-semibold text-brand-700 tabular-nums">
+            <span class="font-semibold text-deep-700 tabular-nums">
                 {{ number_format((float) $dish->price, 2, ',', ' ') }} грн
             </span>
 

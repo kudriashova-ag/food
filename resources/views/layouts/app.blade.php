@@ -7,7 +7,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#c2410c">
+    <meta name="theme-color" content="#034431">
     <title>@yield('title', config('app.name'))</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,18 +19,14 @@
 <body class="flex h-full flex-col bg-ink-50 text-ink-900 antialiased">
     <header class="sticky top-0 z-20 border-b border-ink-200 bg-white/90 backdrop-blur">
         <div class="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
-            <a href="{{ route('home') }}" class="flex items-center gap-2.5">
-                <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M3 2v7c0 1.1.9 2 2 2h1a2 2 0 0 0 2-2V2"/>
-                        <path d="M6 2v20"/>
-                        <path d="M18 2c-1.7 0-3 2.2-3 5s.7 4 3 4v11"/>
-                    </svg>
-                </span>
+            <a href="{{ route('home') }}" class="flex items-center gap-3">
+                <x-school-logo class="h-10 w-auto sm:h-11" />
 
-                <span class="text-base font-semibold leading-tight sm:text-lg">
-                    {{ \App\Models\Setting::get('school_name') ?: 'Шкільне харчування' }}
+                <span class="leading-tight">
+                    <span class="block text-base font-bold sm:text-lg">
+                        {{ \App\Models\Setting::get('school_name') ?: 'Шкільне харчування' }}
+                    </span>
+                    <span class="hidden text-xs text-ink-500 sm:block">Замовлення харчування</span>
                 </span>
             </a>
 
@@ -40,7 +36,7 @@
                         <a href="{{ route('orders.index') }}"
                            @class([
                                'hidden rounded-lg px-3 py-2 font-medium transition sm:block',
-                               'bg-brand-50 text-brand-700' => request()->routeIs('orders.*'),
+                               'bg-brand-50 text-deep-700' => request()->routeIs('orders.*'),
                                'text-ink-600 hover:bg-ink-100' => ! request()->routeIs('orders.*'),
                            ])>
                             Мої замовлення
@@ -49,7 +45,7 @@
                         <a href="{{ route('settings') }}"
                            @class([
                                'hidden rounded-lg px-3 py-2 font-medium transition sm:block',
-                               'bg-brand-50 text-brand-700' => request()->routeIs('settings*'),
+                               'bg-brand-50 text-deep-700' => request()->routeIs('settings*'),
                                'text-ink-600 hover:bg-ink-100' => ! request()->routeIs('settings*'),
                            ])>
                             Налаштування
@@ -88,7 +84,7 @@
                     <a href="{{ route('home') }}"
                        @class([
                            'flex-1 py-2.5 text-center text-sm font-medium transition',
-                           'text-brand-700' => request()->routeIs('home') || request()->routeIs('menu'),
+                           'text-deep-700' => request()->routeIs('home') || request()->routeIs('menu'),
                            'text-ink-500' => ! (request()->routeIs('home') || request()->routeIs('menu')),
                        ])>
                         Меню
@@ -96,7 +92,7 @@
                     <a href="{{ route('orders.index') }}"
                        @class([
                            'flex-1 py-2.5 text-center text-sm font-medium transition',
-                           'text-brand-700' => request()->routeIs('orders.*'),
+                           'text-deep-700' => request()->routeIs('orders.*'),
                            'text-ink-500' => ! request()->routeIs('orders.*'),
                        ])>
                         Замовлення
@@ -104,7 +100,7 @@
                     <a href="{{ route('settings') }}"
                        @class([
                            'flex-1 py-2.5 text-center text-sm font-medium transition',
-                           'text-brand-700' => request()->routeIs('settings*'),
+                           'text-deep-700' => request()->routeIs('settings*'),
                            'text-ink-500' => ! request()->routeIs('settings*'),
                        ])>
                         Налаштування

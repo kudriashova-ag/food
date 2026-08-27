@@ -48,7 +48,7 @@
                 <h2 class="text-sm font-semibold">{{ $day['date']->translatedFormat('l, d.m') }}</h2>
 
                 @if ($day['date']->isToday())
-                    <span class="badge bg-brand-100 text-brand-800">сьогодні</span>
+                    <span class="badge bg-brand-100 text-deep-800">сьогодні</span>
                 @endif
             </header>
 

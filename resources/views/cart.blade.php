@@ -26,7 +26,7 @@
     @forelse ($groups as $group)
         <section class="card mb-4 overflow-hidden">
             <header class="flex items-center gap-2.5 border-b border-ink-100 bg-ink-50/60 px-4 py-3">
-                <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-100 text-sm font-bold text-brand-700">
+                <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-100 text-sm font-bold text-deep-700">
                     {{ mb_substr($group['supplier']->name, 0, 1) }}
                 </span>
                 <h2 class="font-semibold">{{ $group['supplier']->name }}</h2>
@@ -63,7 +63,7 @@
                                     @method('PATCH')
                                     <select name="quantity" onchange="this.form.submit()"
                                             class="w-16 rounded-lg border border-ink-300 bg-white px-2 py-1.5 text-center text-sm font-semibold
-                                                   focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100">
+                                                   focus:border-deep-500 focus:outline-none focus:ring-2 focus:ring-deep-100">
                                         @for ($n = 1; $n <= 10; $n++)
                                             <option value="{{ $n }}" @selected($n === $item->quantity)>{{ $n }}</option>
                                         @endfor
