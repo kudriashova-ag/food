@@ -4,9 +4,26 @@
 
 @section('content')
     <div class="mb-6">
-        <a href="{{ route('home') }}" class="text-sm text-zinc-500 hover:underline">← До постачальників</a>
-        <h1 class="mt-2 text-xl font-semibold">{{ $supplier->name }}</h1>
-        <p class="text-sm text-zinc-500">Ціна дня — це сума обраних страв.</p>
+        <a href="{{ route('home') }}"
+           class="inline-flex items-center gap-1.5 text-sm font-medium text-ink-500 transition hover:text-brand-700">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m15 18-6-6 6-6"/>
+            </svg>
+            До постачальників
+        </a>
+
+        <div class="mt-3 flex items-center gap-4">
+            @if ($supplier->logo_path)
+                <img src="{{ Storage::disk('public')->url($supplier->logo_path) }}" alt=""
+                     class="h-14 w-14 shrink-0 rounded-xl object-cover ring-1 ring-ink-200">
+            @endif
+
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight">{{ $supplier->name }}</h1>
+                <p class="text-sm text-ink-500">Ціна дня — це сума обраних страв.</p>
+            </div>
+        </div>
     </div>
 
     @forelse ($days as $day)
@@ -27,37 +44,58 @@
                 ->where('type', \App\Enums\MenuSectionType::Complex)
                 ->flatMap(fn ($section) => $section->sectionDishes)
                 ->sum(fn ($sectionDish) => (float) $sectionDish->dish->price);
+
+            $isToday = $day->date->isToday();
         @endphp
 
         <details @class([
-                    'group mb-3 overflow-hidden rounded-xl border bg-white',
-                    'border-zinc-200' => $open,
-                    'border-zinc-200/70' => ! $open,
+                    'group card mb-3 overflow-hidden',
+                    'opacity-75' => ! $open,
                  ]) @if ($expanded) open @endif>
-            <summary class="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-4 py-3 select-none hover:bg-zinc-50 [&::-webkit-details-marker]:hidden">
-                <span class="flex items-center gap-2">
-                    <span class="text-zinc-400 transition-transform group-open:rotate-90">›</span>
-                    <h2 class="font-semibold {{ $open ? '' : 'text-zinc-500' }}">
+            <summary class="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-4 py-3.5
+                            select-none transition hover:bg-ink-50 [&::-webkit-details-marker]:hidden">
+                <span class="flex items-center gap-2.5">
+                    <svg class="h-4 w-4 shrink-0 text-ink-400 transition-transform group-open:rotate-90"
+                         viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="m9 18 6-6-6-6"/>
+                    </svg>
+
+                    <h2 @class([
+                            'font-semibold',
+                            'text-ink-900' => $open,
+                            'text-ink-500' => ! $open,
+                        ])>
                         {{ $day->date->translatedFormat('l, d.m') }}
                     </h2>
+
+                    @if ($isToday)
+                        <span class="badge bg-brand-100 text-brand-800">сьогодні</span>
+                    @endif
                 </span>
 
                 @if ($open)
-                    <span class="text-xs text-zinc-500">{{ $deadline->orderLabel() }}</span>
+                    <span class="flex items-center gap-1.5 text-xs text-ink-500">
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+                        </svg>
+                        {{ $deadline->orderLabel() }}
+                    </span>
                 @else
-                    <span class="text-xs font-medium text-amber-700">Приймання замовлень завершено</span>
+                    <span class="badge bg-amber-50 text-amber-800">Приймання завершено</span>
                 @endif
             </summary>
 
             <form method="POST" action="{{ route('cart.store-day', [$supplier->slug, $day->date->toDateString()]) }}"
-                  class="border-t border-zinc-100" {{ $open ? 'data-day-form' : '' }}>
+                  class="border-t border-ink-100" {{ $open ? 'data-day-form' : '' }}>
                 @csrf
 
-                <fieldset @disabled(! $open) class="{{ $open ? '' : 'opacity-50' }}">
-                    <div class="grid gap-4 px-4 py-3 {{ $extraSections->isNotEmpty() && $mainSections->isNotEmpty() ? 'md:grid-cols-2' : '' }}">
+                <fieldset @disabled(! $open)>
+                    <div class="grid gap-5 px-4 py-4 {{ $extraSections->isNotEmpty() && $mainSections->isNotEmpty() ? 'md:grid-cols-2' : '' }}">
                         @if ($mainSections->isNotEmpty())
-                            <div class="space-y-4">
-                                <div class="text-xs font-medium tracking-wide text-zinc-400 uppercase">Основні страви</div>
+                            <div class="space-y-5">
+                                <div class="text-xs font-semibold uppercase tracking-wider text-ink-400">Основні страви</div>
 
                                 @foreach ($mainSections as $section)
                                     <x-menu-section :section="$section" />
@@ -66,11 +104,11 @@
                         @endif
 
                         @if ($extraSections->isNotEmpty())
-                            <div class="space-y-2 md:border-l md:border-zinc-100 md:pl-4">
-                                <div class="text-xs font-medium tracking-wide text-zinc-400 uppercase">Додатково</div>
+                            <div class="space-y-3 md:border-l md:border-ink-100 md:pl-5">
+                                <div class="text-xs font-semibold uppercase tracking-wider text-ink-400">Додатково</div>
 
                                 {{-- Додаткових страв буває багато — колонка гортається окремо від сторінки. --}}
-                                <div class="max-h-96 space-y-4 overflow-y-auto pr-1">
+                                <div class="max-h-96 space-y-5 overflow-y-auto pr-1">
                                     @foreach ($extraSections as $section)
                                         <x-menu-section :section="$section" />
                                     @endforeach
@@ -81,16 +119,19 @@
                 </fieldset>
 
                 @if ($open)
-                    <div class="border-t border-zinc-100 px-4 py-3">
+                    <div class="border-t border-ink-100 bg-ink-50/60 px-4 py-4">
                         <div class="mb-3 flex items-baseline justify-between gap-3">
-                            <span class="text-sm text-zinc-500">Разом за день</span>
-                            <span class="text-lg font-semibold" data-day-total>
+                            <span class="text-sm text-ink-500">Разом за день</span>
+                            <span class="text-xl font-bold tabular-nums" data-day-total>
                                 {{ number_format($defaultTotal, 2, ',', ' ') }} грн
                             </span>
                         </div>
 
-                        <button type="submit"
-                                class="w-full rounded-lg bg-zinc-900 px-4 py-3 text-sm font-medium text-white hover:bg-zinc-800">
+                        <button type="submit" class="btn-primary w-full">
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M5 12h14M12 5v14"/>
+                            </svg>
                             Додати цей день у кошик
                         </button>
                     </div>
@@ -98,8 +139,15 @@
             </form>
         </details>
     @empty
-        <div class="rounded-xl border border-dashed border-zinc-300 p-8 text-center text-sm text-zinc-500">
-            Меню на найближчі дні ще не опубліковане.
+        <div class="card flex flex-col items-center gap-3 p-10 text-center">
+            <span class="flex h-14 w-14 items-center justify-center rounded-full bg-ink-100">
+                <svg class="h-7 w-7 text-ink-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/>
+                </svg>
+            </span>
+            <p class="font-medium">Меню ще не опубліковане</p>
+            <p class="text-sm text-ink-500">Загляньте пізніше — постачальник саме його готує.</p>
         </div>
     @endforelse
 @endsection

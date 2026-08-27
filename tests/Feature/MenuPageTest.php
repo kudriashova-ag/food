@@ -76,7 +76,7 @@ class MenuPageTest extends TestCase
     {
         $card = $this->dayCard('понеділок, 10.08');
 
-        $this->assertStringContainsString('Приймання замовлень завершено', $card);
+        $this->assertStringContainsString('Приймання завершено', $card);
         $this->assertStringNotContainsString('Додати цей день у кошик', $card);
         $this->assertFalse($this->isExpanded($card));
     }
