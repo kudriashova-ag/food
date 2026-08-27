@@ -41,9 +41,17 @@
     </form>
 
     @foreach ($days as $day)
-        @php $hasOrders = $day['suppliers']->isNotEmpty(); @endphp
+        @php
+            $hasOrders = $day['suppliers']->isNotEmpty();
 
-        <section @class(['card mb-3 overflow-hidden', 'opacity-70' => ! $hasOrders])>
+            // День, де не лишилося жодної активної позиції, приглушуємо так само,
+            // як день без замовлень — інакше він читається як активний.
+            $dayIsEmpty = ! $hasOrders || $day['suppliers']->every(
+                fn (array $group): bool => $group['lines']->reject->isCancelled()->isEmpty(),
+            );
+        @endphp
+
+        <section @class(['card mb-3 overflow-hidden', 'opacity-70' => $dayIsEmpty])>
             <header class="flex items-center gap-2 border-b border-ink-100 bg-ink-50/60 px-4 py-2.5">
                 <h2 class="text-sm font-semibold">{{ $day['date']->translatedFormat('l, d.m') }}</h2>
 
@@ -53,11 +61,25 @@
             </header>
 
             @forelse ($day['suppliers'] as $group)
-                <div class="border-b border-ink-100 px-4 py-3.5 last:border-0">
-                    <div class="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
-                        <h3 class="text-sm font-semibold">{{ $group['supplier']->name }}</h3>
+                @php
+                    // Коли скасовано все, розгорнутий список лише плутає: день виглядає
+                    // як активний. Згортаємо його в один рядок, але не приховуємо —
+                    // ТЗ (п. 9.1) вимагає, щоб факт скасування лишався видимим.
+                    $activeLines = $group['lines']->reject->isCancelled();
+                    $allCancelled = $activeLines->isEmpty() && $group['lines']->isNotEmpty();
+                    $cancelledAt = $group['lines']->max('cancelled_at');
+                @endphp
 
-                        @if ($group['deadline']->cancellationOpen())
+                <div @class(['border-b border-ink-100 px-4 py-3.5 last:border-0', 'bg-ink-50/40' => $allCancelled])>
+                    <div class="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
+                        <h3 @class([
+                                'text-sm font-semibold',
+                                'text-ink-500' => $allCancelled,
+                            ])>{{ $group['supplier']->name }}</h3>
+
+                        @if ($allCancelled)
+                            <span class="badge bg-ink-200 text-ink-600">Скасовано</span>
+                        @elseif ($group['deadline']->cancellationOpen())
                             <form method="POST"
                                   action="{{ route('orders.cancel-day', [$group['supplier']->slug, $day['date']->toDateString()]) }}"
                                   onsubmit="return confirm('Скасувати всі страви цього постачальника на цей день?')">
@@ -73,6 +95,41 @@
                         @endif
                     </div>
 
+                    @if ($allCancelled)
+                        {{-- Один рядок замість переліку. Деталі — за потреби. --}}
+                        <details class="group/cancelled text-sm">
+                            <summary class="flex cursor-pointer list-none items-center gap-1.5 text-ink-500
+                                            [&::-webkit-details-marker]:hidden">
+                                <svg class="h-3.5 w-3.5 transition-transform group-open/cancelled:rotate-90"
+                                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="m9 18 6-6-6-6"/>
+                                </svg>
+
+                                Замовлення скасовано
+                                @if ($cancelledAt)
+                                    {{ \Illuminate\Support\Carbon::parse($cancelledAt)->translatedFormat('d.m о H:i') }}
+                                @endif
+                            </summary>
+
+                            <ul class="mt-2 space-y-1 pl-5 text-ink-400">
+                                @foreach ($group['lines'] as $line)
+                                    <li class="flex justify-between gap-3">
+                                        <span class="line-through">
+                                            {{ $line->dish_name }}
+                                            @if ($line->quantity > 1)
+                                                × {{ $line->quantity }}
+                                            @endif
+                                        </span>
+
+                                        @if ($line->cancel_reason)
+                                            <span class="shrink-0 text-xs">{{ $line->cancel_reason }}</span>
+                                        @endif
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </details>
+                    @else
                     <ul class="space-y-2">
                         @foreach ($group['lines'] as $line)
                             <li class="flex items-center gap-3 text-sm">
@@ -122,11 +179,13 @@
                         @endforeach
                     </ul>
 
+                    {{-- Для повністю скасованого дня сума завжди 0 — показувати її ні до чого. --}}
                     <div class="mt-2.5 text-right">
                         <span class="text-sm font-semibold tabular-nums">
                             {{ number_format($group['total'], 2, ',', ' ') }} грн
                         </span>
                     </div>
+                    @endif
                 </div>
             @empty
                 <div class="px-4 py-3 text-sm text-ink-400">Харчування не замовлено</div>
