@@ -56,7 +56,10 @@
             <p class="mt-1 text-sm text-ink-500">Зверніться до адміністрації школи.</p>
         </div>
     @else
-        <div class="grid gap-px bg-ink-200 {{ $columns }}">
+        {{-- Скруглення задає сама сітка через overflow-hidden: крайні панелі
+             обрізаються по її кутах. Так воно лишається правильним і на телефоні,
+             коли панелі переносяться в стовпчик, і за будь-якої їх кількості. --}}
+        <div class="mx-4 grid gap-px overflow-hidden rounded-[2rem] bg-ink-200 {{ $columns }} sm:mx-6">
             @foreach ($suppliers as $index => $supplier)
                 @php $p = $palettes[$index % 2]; @endphp
 
