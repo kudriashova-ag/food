@@ -44,7 +44,7 @@
 
             <h1 class="text-4xl font-black leading-none tracking-tight sm:text-5xl">Що замовити</h1>
 
-            <p class="mx-auto mt-4 max-w-xl text-ink-500/65">
+            <p class="mx-auto mt-4 max-w-2-xl text-ink-500/65">
                 Можна замовляти в кількох постачальників на один день — кошик спільний.
             </p>
         </div>

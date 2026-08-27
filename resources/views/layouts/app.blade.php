@@ -22,7 +22,13 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="flex h-full flex-col bg-ink-50 text-ink-900 antialiased">
+<body class="flex h-full flex-col bg-ink-50/70 text-ink-900 antialiased">
+    {{-- Декоративні плями на фоні. pointer-events-none, щоб не перехоплювали натискання. --}}
+    <div class="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden="true">
+        <div class="absolute -left-16 -top-20 h-80 w-[26rem] -rotate-12 rounded-[2.5rem] bg-brand-100/50"></div>
+        <div class="absolute -bottom-16 -right-10 h-72 w-72 rounded-[5rem] bg-deep-100/40"></div>
+    </div>
+
     <header class="sticky top-0 z-20 border-b border-ink-200 bg-white/90 backdrop-blur">
         <div class="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
             {{-- У логотипі вже є назва школи, тому поруч дублюємо лише призначення сервісу. --}}
@@ -141,7 +147,7 @@
         @yield('content')
     </main>
 
-    <footer class="border-t border-ink-200 bg-white">
+    <footer class="border-t border-ink-200 bg-white/80 backdrop-blur">
         <div class="mx-auto max-w-5xl px-4 py-5 text-sm text-ink-500">
             @php $contacts = \App\Models\Setting::get('school_contacts'); @endphp
 
