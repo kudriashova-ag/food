@@ -10,9 +10,7 @@
             <p class="mb-3 text-sm text-sky-900">
                 Посилання дійсне 15 хвилин. Відкрийте його на телефоні з Telegram і натисніть «Старт».
             </p>
-            <a href="{{ session('telegram_link') }}" target="_blank" rel="noopener"
-               class="inline-flex items-center gap-2 rounded-xl bg-sky-600 px-5 py-3 text-base font-semibold text-white
-                      shadow-sm transition hover:bg-sky-700 active:scale-[0.99]">
+            <a href="{{ session('telegram_link') }}" target="_blank" rel="noopener" class="btn-primary">
                 Відкрити Telegram
             </a>
             <p class="mt-3 break-all text-xs text-sky-800">{{ session('telegram_link') }}</p>

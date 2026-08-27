@@ -73,7 +73,7 @@
                     {{-- Вхід потрібен на оформленні: меню й кошик відкриті всім. --}}
                     @if (! request()->routeIs('login'))
                         <a href="{{ route('login') }}"
-                           class="rounded-lg bg-brand-600 px-4 py-2 font-semibold text-white transition hover:bg-brand-700">
+                           class="rounded-lg bg-deep-700 px-4 py-2 font-semibold text-white transition hover:bg-deep-600">
                             Увійти
                         </a>
                     @endif
