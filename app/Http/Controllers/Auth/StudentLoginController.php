@@ -57,13 +57,18 @@ class StudentLoginController extends Controller
         }
 
         RateLimiter::clear($this->throttleKey($request));
+
+        // Токен читаємо до regenerate(): той перестворює сесію, і на драйвері
+        // database значення може не пережити перенесення.
+        $guestToken = $cart->pullGuestToken();
+
         $request->session()->regenerate();
 
         $student = Auth::user()->student;
         $student?->forceFill(['first_login_at' => $student->first_login_at ?? now()])->save();
 
         // Кошик збирають ще до входу — переносимо його й ведемо людину туди, де вона зупинилася.
-        $moved = $student !== null ? $cart->adoptGuestCart($student) : 0;
+        $moved = $student !== null ? $cart->adoptGuestCart($student, $guestToken) : 0;
 
         return redirect()->intended($moved > 0 ? route('cart') : '/');
     }

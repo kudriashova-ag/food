@@ -79,11 +79,27 @@ class CartService
      *
      * @return int кількість перенесених позицій
      */
-    public function adoptGuestCart(Student $student): int
+    /**
+     * Забирає гостьовий токен із сесії. Викликається до session()->regenerate(),
+     * бо після перестворення сесії значення може вже не бути.
+     */
+    public function pullGuestToken(): ?string
     {
         $token = session()->pull(self::GUEST_TOKEN_KEY);
 
-        if (! is_string($token) || $token === '') {
+        return is_string($token) && $token !== '' ? $token : null;
+    }
+
+    /**
+     * Переносить гостьовий кошик до учня після входу.
+     *
+     * @param  string|null  $token  якщо не переданий, береться з поточної сесії
+     */
+    public function adoptGuestCart(Student $student, ?string $token = null): int
+    {
+        $token ??= $this->pullGuestToken();
+
+        if ($token === null) {
             return 0;
         }
 

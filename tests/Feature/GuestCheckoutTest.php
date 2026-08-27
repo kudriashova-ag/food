@@ -173,6 +173,30 @@ class GuestCheckoutTest extends TestCase
             ->assertSee('Підтвердити замовлення');
     }
 
+    public function test_moved_cart_stays_editable_after_login(): void
+    {
+        // Раніше токен губився під час session()->regenerate(), гостьовий кошик
+        // лишався окремим — і зміна кількості впиралася в 403.
+        $this->addDayToCart();
+
+        $this->post('/login', [
+            'login' => 'ivanenko.mariia',
+            'password' => 'secret',
+        ])->assertRedirect(route('cart'));
+
+        $this->assertSame(1, Cart::query()->count(), 'Гостьовий кошик мав переїхати, а не лишитися другим');
+
+        $item = CartItem::query()->sole();
+
+        $this->patch(route('cart.update-item', $item), ['quantity' => 3])
+            ->assertRedirect();
+
+        $this->assertSame(3, $item->fresh()->quantity);
+
+        $this->delete(route('cart.destroy-item', $item))->assertRedirect();
+        $this->assertSame(0, CartItem::query()->count());
+    }
+
     public function test_moved_cart_merges_with_what_the_student_already_had(): void
     {
         // Учень поклав воду під логіном, вийшов і доклав котлету вже гостем.
