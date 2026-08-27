@@ -2,6 +2,12 @@
 
 Покроково, для шаред-хостингу з SSH і панеллю керування.
 
+> **Поточний сервер проєкту:** cPanel, акаунт `h78693c`, хост `185.174.173.22`,
+> домен `food.zp.ua`. PHP 8.4, git і composer встановлені глобально,
+> символьні посилання дозволені.
+>
+> Сумісність із PHP 8.4 перевірена: уся тестова сюїта (207 тестів) проходить.
+
 ---
 
 ## 0. Два різні SSH-ключі — не переплутайте
@@ -99,7 +105,7 @@ ssh -T git@github.com
 
 Визначте, куди хостинг дивиться document root. Найпоширеніші варіанти — `~/public_html` або `~/domains/сайт/public_html`.
 
-**Варіант А — можна змінити document root** (найкраще):
+**Варіант А — можна змінити document root:**
 
 ```bash
 cd ~
@@ -108,7 +114,36 @@ git clone git@github.com:користувач/репозиторій.git school-
 
 Далі в панелі вкажіть document root на `~/school-food/public_html`.
 
-**Варіант Б — document root змінити не можна.** Тоді скажіть мені: винесу публічну папку окремо. Не намагайтеся клонувати проєкт усередину `public_html` — тоді код, `.env` і база опиняться у відкритому доступі.
+**Варіант Б — document root змінити не можна** (це наш випадок із `food.zp.ua`).
+
+Проєкт кладемо **поруч** із публічною папкою, а не всередину:
+
+```
+/home/h78693c/
+   school-food/     ← код: app, config, vendor, storage
+   public_html/     ← document root: лише index.php і статика
+```
+
+```bash
+cd ~
+git clone git@github.com:користувач/репозиторій.git school-food
+cd school-food
+bash scripts/link-public.sh
+```
+
+Скрипт покладе в `~/public_html` точку входу й посилання на зібрані асети.
+Далі в `.env` обов'язково вкажіть:
+
+```
+APP_PUBLIC_PATH=/home/h78693c/public_html
+```
+
+Без цього рядка `storage:link` і асети Filament підуть у папку всередині
+проєкту, куди вебсервер не дивиться — сайт відкриється без стилів,
+а фото страв не показуватимуться.
+
+> **Ніколи не клонуйте проєкт усередину `public_html`** — тоді `.env`
+> із паролем до бази опиниться у відкритому доступі.
 
 ---
 
@@ -120,13 +155,24 @@ cd ~/school-food
 composer install --no-dev --optimize-autoloader
 
 cp .env.production.example .env
-nano .env                 # заповніть базу, пошту, APP_URL
+nano .env                 # база, пошта, APP_URL, APP_PUBLIC_PATH
 php artisan key:generate
 
 php artisan migrate --force
 php artisan storage:link
+php artisan filament:assets
 php artisan db:seed --class=DatabaseSeeder --force
 ```
+
+Перевірте, що посилання на фото створилося саме в публічній папці:
+
+```bash
+ls -la ~/public_html/storage
+```
+
+Має бути посилання на `~/school-food/storage/app/public`. Якщо його там немає,
+а натомість з'явилося в `~/school-food/public_html/storage` — у `.env`
+не заданий `APP_PUBLIC_PATH`.
 
 Останній рядок створює адміністратора, класи, алергенів і двох тестових постачальників.
 **Одразу після цього змініть пароль адміністратора** — у сідері він `secret`.
@@ -215,6 +261,12 @@ php artisan migrate --force
 php artisan config:cache && php artisan route:cache && php artisan view:cache
 php artisan filament:assets
 ```
+
+Публічну папку чіпати не треба: `index.php` не змінюється, а `build`
+підключений посиланням, тож нова збірка підхоплюється сама.
+
+Запускати `scripts/link-public.sh` повторно потрібно лише тоді, коли
+змінився сам `index.php` або файли на кшталт `.htaccess`.
 
 ---
 
