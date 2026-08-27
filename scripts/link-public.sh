@@ -43,14 +43,16 @@ for item in .htaccess favicon.ico robots.txt; do
     fi
 done
 
-# --- Зібрані асети ---
-# Саме посилання, а не копія: після git pull і npm run build
-# нова збірка підхопиться сама.
-if [ -d "${APP_DIR}/public_html/build" ]; then
-    rm -rf "${PUBLIC_DIR}/build"
-    ln -s "${APP_DIR}/public_html/build" "${PUBLIC_DIR}/build"
-    echo "✓ build → посилання на проєкт"
-fi
+# --- Папки, які їдуть із репозиторієм ---
+# Посилання, а не копії: після git pull новий вміст підхоплюється сам.
+# build — зібрані асети, images — логотип школи та інша статика.
+for dir in build images; do
+    if [ -d "${APP_DIR}/public_html/${dir}" ]; then
+        rm -rf "${PUBLIC_DIR}/${dir}"
+        ln -s "${APP_DIR}/public_html/${dir}" "${PUBLIC_DIR}/${dir}"
+        echo "✓ ${dir} → посилання на проєкт"
+    fi
+done
 
 echo ""
 echo "Далі, з кореня проєкту:"

@@ -11,7 +11,7 @@
     <title>@yield('title', config('app.name'))</title>
 
     {{-- Порожній favicon.ico лишився від Laravel — беремо логотип школи. --}}
-    @if (file_exists(public_path('images/logo.webp')))
+    @if (file_exists(public_path('images/logo.webp')) || file_exists(base_path('public_html/images/logo.webp')))
         <link rel="icon" type="image/webp" href="{{ asset('images/logo.webp') }}">
         <link rel="apple-touch-icon" href="{{ asset('images/logo.webp') }}">
     @endif

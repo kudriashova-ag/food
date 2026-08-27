@@ -2,10 +2,13 @@
 
 @php
     // Логотип кладеться в public_html/images/. Формат будь-який із перелічених,
-    // svg найкращий — не втрачає чіткості. Поки файлу немає, показуємо
-    // схематичну емблему, щоб шапка не «пливла».
+    // svg найкращий — не втрачає чіткості.
+    //
+    // Шукаємо і в публічній папці, і всередині проєкту: на хостингу без права
+    // змінювати document root це різні місця, і файл фізично лежить у проєкті.
     $logo = collect(['images/logo.svg', 'images/logo.webp', 'images/logo.png', 'images/logo.jpg'])
-        ->first(fn (string $path): bool => file_exists(public_path($path)));
+        ->first(fn (string $path): bool => file_exists(public_path($path))
+            || file_exists(base_path("public_html/{$path}")));
 @endphp
 
 @if ($logo)
