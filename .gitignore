@@ -27,3 +27,7 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Локальні налаштування FTP/SFTP редактора — містять паролі
+sftp.json
+**/sftp.json
