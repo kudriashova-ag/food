@@ -36,19 +36,16 @@
         $weekStart = now()->startOfWeek();
     @endphp
 
-    <section class="bg-ink-900 px-4 py-10 text-center text-white sm:py-14">
-        <div class="mx-auto max-w-3xl">
+    <section class="px-4 py-10 text-center  sm:py-6">
+        <div class="mx-auto max-w-4xl">
             <div class="mb-3 text-xs font-bold uppercase tracking-[0.22em] text-brand-500">
                 {{ $weekStart->translatedFormat('d') }}–{{ $weekStart->addDays(4)->translatedFormat('d F') }}
             </div>
 
             <h1 class="text-4xl font-black leading-none tracking-tight sm:text-5xl">Що замовити</h1>
 
-            <p class="mx-auto mt-4 max-w-xl text-white/65">
+            <p class="mx-auto mt-4 max-w-xl text-ink-500/65">
                 Можна замовляти в кількох постачальників на один день — кошик спільний.
-                @guest
-                    <span class="text-white/45">Вхід потрібен лише на оформленні.</span>
-                @endguest
             </p>
         </div>
     </section>
@@ -69,7 +66,7 @@
                     </h2>
 
                     @if ($supplier->description)
-                        <p class="font-medium {{ $p['muted'] }}">{{ $supplier->description }}</p>
+                        <p class="font-medium text-sm {{ $p['muted'] }}">{{ $supplier->description }}</p>
                     @endif
 
                     @if ($supplier->logo_path)
@@ -96,7 +93,7 @@
         </div>
     @endif
 
-    <div class="bg-ink-900 px-4 py-6 text-center text-sm text-white/45">
+    <div class="px-4 py-6 text-center text-sm text-ink-500/70">
         Меню веде постачальник · Приймання замовлень обмежене дедлайном
     </div>
 @endsection
