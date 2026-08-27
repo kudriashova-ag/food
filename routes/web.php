@@ -4,9 +4,11 @@ use App\Http\Controllers\Auth\StudentLoginController;
 use App\Http\Controllers\CancellationController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\ConsentController;
+use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\MenuController;
 use App\Http\Controllers\NotificationSettingsController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\SchedulerController;
 use App\Http\Controllers\SupplierListController;
 use App\Http\Controllers\TelegramWebhookController;
 use Illuminate\Http\Request;
@@ -65,3 +67,15 @@ Route::middleware('student')->group(function (): void {
 // Вебхук бота: без сесії й CSRF, захищений секретом в адресі.
 Route::post('/telegram/webhook/{secret}', TelegramWebhookController::class)
     ->name('telegram.webhook');
+
+/*
+| Обслуговування без SSH.
+|
+| Обидва маршрути існують, лише поки в .env заданий відповідний токен.
+| Порожній токен — і Laravel віддає 404, наче маршруту немає.
+*/
+Route::get('/maintenance/{token}/{command}', MaintenanceController::class)
+    ->name('maintenance');
+
+Route::get('/scheduler/{token}', SchedulerController::class)
+    ->name('scheduler');
