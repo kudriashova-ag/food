@@ -10,6 +10,12 @@
     <meta name="theme-color" content="#034431">
     <title>@yield('title', config('app.name'))</title>
 
+    {{-- Порожній favicon.ico лишився від Laravel — беремо логотип школи. --}}
+    @if (file_exists(public_path('images/logo.webp')))
+        <link rel="icon" type="image/webp" href="{{ asset('images/logo.webp') }}">
+        <link rel="apple-touch-icon" href="{{ asset('images/logo.webp') }}">
+    @endif
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -19,14 +25,12 @@
 <body class="flex h-full flex-col bg-ink-50 text-ink-900 antialiased">
     <header class="sticky top-0 z-20 border-b border-ink-200 bg-white/90 backdrop-blur">
         <div class="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
-            <a href="{{ route('home') }}" class="flex items-center gap-3">
-                <x-school-logo class="h-10 w-auto sm:h-11" />
+            {{-- У логотипі вже є назва школи, тому поруч дублюємо лише призначення сервісу. --}}
+            <a href="{{ route('home') }}" class="flex min-w-0 items-center gap-3">
+                <x-school-logo class="h-10 w-auto shrink-0 sm:h-12" />
 
-                <span class="leading-tight">
-                    <span class="block text-base font-bold sm:text-lg">
-                        {{ \App\Models\Setting::get('school_name') ?: 'Шкільне харчування' }}
-                    </span>
-                    <span class="hidden text-xs text-ink-500 sm:block">Замовлення харчування</span>
+                <span class="hidden border-l border-ink-200 pl-3 text-sm font-semibold leading-tight text-ink-600 sm:block">
+                    Замовлення<br>харчування
                 </span>
             </a>
 

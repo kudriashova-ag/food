@@ -7,13 +7,7 @@
 @section('content')
     <div class="mx-auto max-w-sm py-6 sm:py-12">
         <div class="mb-6 text-center">
-            <span class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-500 text-deep-900 shadow-sm">
-                <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M3 2v7c0 1.1.9 2 2 2h1a2 2 0 0 0 2-2V2"/><path d="M6 2v20"/>
-                    <path d="M18 2c-1.7 0-3 2.2-3 5s.7 4 3 4v11"/>
-                </svg>
-            </span>
+            <x-school-logo class="mx-auto mb-5 h-20 w-auto" />
 
             <h1 class="text-2xl font-bold tracking-tight">Вхід у кабінет</h1>
             <p class="mt-2 text-sm text-ink-500">

@@ -1,9 +1,10 @@
 @props(['class' => 'h-9 w-auto'])
 
 @php
-    // Логотип школи кладеться у public_html/images/logo.png (або .svg).
-    // Поки файлу немає — показуємо схематичну емблему, щоб шапка не «пливла».
-    $logo = collect(['images/logo.svg', 'images/logo.png'])
+    // Логотип кладеться в public_html/images/. Формат будь-який із перелічених,
+    // svg найкращий — не втрачає чіткості. Поки файлу немає, показуємо
+    // схематичну емблему, щоб шапка не «пливла».
+    $logo = collect(['images/logo.svg', 'images/logo.webp', 'images/logo.png', 'images/logo.jpg'])
         ->first(fn (string $path): bool => file_exists(public_path($path)));
 @endphp
 
