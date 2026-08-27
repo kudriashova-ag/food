@@ -151,6 +151,17 @@ class TelegramTest extends TestCase
         $this->assertSame(0, TelegramLink::query()->count());
     }
 
+    public function test_webhook_command_rejects_a_secret_with_special_characters(): void
+    {
+        // «!» кодується в адресі як %21, шлях перестає збігатися з винятком
+        // CSRF — і Telegram отримує 403 замість відповіді.
+        config(['services.telegram.webhook_secret' => '7gK!9zP']);
+
+        $this->artisan('telegram:webhook')
+            ->expectsOutputToContain('лише латиницю, цифри')
+            ->assertFailed();
+    }
+
     public function test_wrong_webhook_secret_is_not_found(): void
     {
         $this->postJson('/telegram/webhook/wrong-secret', [

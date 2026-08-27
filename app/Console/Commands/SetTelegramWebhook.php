@@ -34,6 +34,15 @@ class SetTelegramWebhook extends Command
             return self::FAILURE;
         }
 
+        // Спецсимволи в адресі кодуються (! → %21), і тоді шлях перестає
+        // збігатися з винятком CSRF — Telegram отримує 403 і бот мовчить.
+        if (! preg_match('/^[A-Za-z0-9_-]{16,}$/', $secret)) {
+            $this->error('TELEGRAM_WEBHOOK_SECRET має бути щонайменше 16 символів і містити лише латиницю, цифри, дефіс або підкреслення.');
+            $this->line('Згенерувати придатний: php -r "echo bin2hex(random_bytes(24));"');
+
+            return self::FAILURE;
+        }
+
         $url = route('telegram.webhook', ['secret' => $secret]);
 
         if (! str_starts_with($url, 'https://')) {
