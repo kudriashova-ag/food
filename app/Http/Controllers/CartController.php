@@ -101,9 +101,16 @@ class CartController extends Controller
         return back()->with('status', 'Позицію прибрано з кошика.');
     }
 
-    /** Чужий кошик недоступний навіть за прямим посиланням — ні учневі, ні гостю. */
+    /**
+     * Чужий кошик недоступний навіть за прямим посиланням — ні учневі, ні гостю.
+     *
+     * Порівнюємо через (int): залежно від збірки PDO ключі приходять то числами,
+     * то рядками, і строге порівняння "1" === 1 давало 403 власному ж кошику.
+     */
     private function authorizeItem(CartItem $item): void
     {
-        abort_unless($item->cart_id === $this->cart->currentIfExists()?->id, 403);
+        $current = $this->cart->currentIfExists();
+
+        abort_unless($current !== null && (int) $item->cart_id === (int) $current->id, 403);
     }
 }

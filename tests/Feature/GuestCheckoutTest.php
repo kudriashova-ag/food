@@ -197,6 +197,23 @@ class GuestCheckoutTest extends TestCase
         $this->assertSame(0, CartItem::query()->count());
     }
 
+    public function test_cart_item_keys_are_integers(): void
+    {
+        // На хостингу PDO віддавав cart_id рядком, і строге порівняння "1" === 1
+        // у перевірці власності кошика давало 403 на власні ж позиції.
+        $this->actingAs($this->user)->post(
+            route('cart.store-day', [$this->supplier->slug, self::SERVICE_DATE]),
+            ['qty' => [$this->complex->id => [$this->cutlet->id => 1]]],
+        );
+
+        $item = CartItem::query()->sole();
+
+        $this->assertIsInt($item->cart_id);
+        $this->assertIsInt($item->supplier_id);
+        $this->assertIsInt($item->dish_id);
+        $this->assertIsInt($item->menu_section_id);
+    }
+
     public function test_moved_cart_merges_with_what_the_student_already_had(): void
     {
         // Учень поклав воду під логіном, вийшов і доклав котлету вже гостем.

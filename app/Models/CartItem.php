@@ -21,6 +21,12 @@ class CartItem extends Model
         return [
             'service_date' => 'date',
             'quantity' => 'integer',
+            // Ключі кастуємо явно: на деяких збірках PDO вони приходять рядками,
+            // і строге порівняння з id моделі мовчки не спрацьовує.
+            'cart_id' => 'integer',
+            'supplier_id' => 'integer',
+            'dish_id' => 'integer',
+            'menu_section_id' => 'integer',
         ];
     }
 
