@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Grep",
+      "Glob",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(powershell:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(pwsh:*)"
+    ],
+    "deny": [
+      
+    ],
+    "defaultMode": "default"
+  }
+}
