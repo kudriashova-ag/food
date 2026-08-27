@@ -2,59 +2,101 @@
 
 @section('title', 'Постачальники')
 
+@section('main-padding', 'p-0')
+
 @section('content')
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">Куди замовляємо</h1>
-        <p class="mt-2 max-w-2xl text-ink-500">
-            Можна замовляти в кількох постачальників на один день — кошик спільний.
-            @guest
-                <span class="text-ink-400">Меню відкрите без входу: логін знадобиться лише на оформленні.</span>
-            @endguest
-        </p>
-    </div>
+    @php
+        // Два постачальники — половини екрана. Три — третини. Більше — сітка карток,
+        // щоб колонки не стали нечитабельно вузькими.
+        $columns = match (true) {
+            $suppliers->count() === 1 => 'md:grid-cols-1',
+            $suppliers->count() === 2 => 'md:grid-cols-2',
+            $suppliers->count() === 3 => 'md:grid-cols-3',
+            default => 'md:grid-cols-2 lg:grid-cols-3',
+        };
 
-    @forelse ($suppliers as $supplier)
-        <a href="{{ route('menu', $supplier->slug) }}"
-           class="card card-hover group mb-3 flex items-center gap-4 p-4">
-            @if ($supplier->logo_path)
-                <img src="{{ Storage::disk('public')->url($supplier->logo_path) }}"
-                     alt="" loading="lazy"
-                     class="h-16 w-16 shrink-0 rounded-xl object-cover ring-1 ring-ink-200">
-            @else
-                <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-2xl font-bold text-deep-800">
-                    {{ mb_substr($supplier->name, 0, 1) }}
-                </div>
-            @endif
+        // Панелі чергують кольори: салатовий і темно-зелений.
+        $palettes = [
+            [
+                'panel' => 'bg-brand-500 text-deep-900',
+                'muted' => 'text-deep-900/65',
+                'chip' => 'bg-deep-900/10 text-deep-900',
+                'btn' => 'bg-deep-700 text-white hover:bg-deep-600',
+                'photo' => 'rgba(0,0,0,.08)',
+            ],
+            [
+                'panel' => 'bg-deep-700 text-white',
+                'muted' => 'text-white/70',
+                'chip' => 'bg-white/15 text-white',
+                'btn' => 'bg-brand-500 text-deep-900 hover:bg-brand-400',
+                'photo' => 'rgba(255,255,255,.1)',
+            ],
+        ];
 
-            <div class="min-w-0 flex-1">
-                <div class="text-lg font-semibold group-hover:text-deep-700">{{ $supplier->name }}</div>
+        $weekStart = now()->startOfWeek();
+    @endphp
 
-                @if ($supplier->description)
-                    <div class="mt-0.5 line-clamp-2 text-sm text-ink-500">{{ $supplier->description }}</div>
-                @endif
+    <section class="bg-ink-900 px-4 py-10 text-center text-white sm:py-14">
+        <div class="mx-auto max-w-3xl">
+            <div class="mb-3 text-xs font-bold uppercase tracking-[0.22em] text-brand-500">
+                {{ $weekStart->translatedFormat('d') }}–{{ $weekStart->addDays(4)->translatedFormat('d F') }}
             </div>
 
-            <svg class="h-5 w-5 shrink-0 text-ink-300 transition group-hover:translate-x-0.5 group-hover:text-deep-500"
-                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="m9 18 6-6-6-6"/>
-            </svg>
-        </a>
-    @empty
-        <div class="card flex flex-col items-center gap-3 p-10 text-center">
-            <span class="flex h-14 w-14 items-center justify-center rounded-full bg-ink-100">
-                <svg class="h-7 w-7 text-ink-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 2v7c0 1.1.9 2 2 2h1a2 2 0 0 0 2-2V2"/><path d="M6 2v20"/>
-                    <path d="M18 2c-1.7 0-3 2.2-3 5s.7 4 3 4v11"/>
-                </svg>
-            </span>
-            <p class="font-medium">Постачальників поки немає</p>
-            <p class="text-sm text-ink-500">Зверніться до адміністрації школи.</p>
-        </div>
-    @endforelse
-@endsection
+            <h1 class="text-4xl font-black leading-none tracking-tight sm:text-5xl">Що замовити</h1>
 
-@section('sticky-bar')
-    <x-cart-bar />
+            <p class="mx-auto mt-4 max-w-xl text-white/65">
+                Можна замовляти в кількох постачальників на один день — кошик спільний.
+                @guest
+                    <span class="text-white/45">Вхід потрібен лише на оформленні.</span>
+                @endguest
+            </p>
+        </div>
+    </section>
+
+    @if ($suppliers->isEmpty())
+        <div class="px-4 py-16 text-center">
+            <p class="font-medium">Постачальників поки немає</p>
+            <p class="mt-1 text-sm text-ink-500">Зверніться до адміністрації школи.</p>
+        </div>
+    @else
+        <div class="grid gap-px bg-ink-200 {{ $columns }}">
+            @foreach ($suppliers as $index => $supplier)
+                @php $p = $palettes[$index % 2]; @endphp
+
+                <div class="flex flex-col gap-5 p-8 sm:p-10 {{ $p['panel'] }}">
+                    <h2 class="text-3xl font-black leading-none tracking-tight sm:text-4xl">
+                        {{ $supplier->name }}
+                    </h2>
+
+                    @if ($supplier->description)
+                        <p class="font-medium {{ $p['muted'] }}">{{ $supplier->description }}</p>
+                    @endif
+
+                    @if ($supplier->logo_path)
+                        <img src="{{ Storage::disk('public')->url($supplier->logo_path) }}" alt=""
+                             loading="lazy" class="h-40 w-full rounded-xl object-cover">
+                    @else
+                        <div class="flex h-40 items-center justify-center rounded-xl"
+                             style="background: repeating-linear-gradient(135deg, {{ $p['photo'] }}, {{ $p['photo'] }} 9px, transparent 9px, transparent 18px)">
+                            <span class="text-6xl font-black opacity-25">{{ mb_substr($supplier->name, 0, 1) }}</span>
+                        </div>
+                    @endif
+
+                    <a href="{{ route('menu', $supplier->slug) }}"
+                       class="mt-auto inline-flex items-center justify-center gap-2 rounded-xl px-5 py-4
+                              text-base font-bold shadow-sm transition active:scale-[0.99] {{ $p['btn'] }}">
+                        Обрати страви по днях
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="m9 18 6-6-6-6"/>
+                        </svg>
+                    </a>
+                </div>
+            @endforeach
+        </div>
+    @endif
+
+    <div class="bg-ink-900 px-4 py-6 text-center text-sm text-white/45">
+        Меню веде постачальник · Приймання замовлень обмежене дедлайном
+    </div>
 @endsection

@@ -23,25 +23,29 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="flex h-full flex-col bg-ink-50 text-ink-900 antialiased">
-    <header class="sticky top-0 z-20 border-b border-ink-200 bg-white/90 backdrop-blur">
+    <header class="sticky top-0 z-20 bg-ink-900 text-white">
         <div class="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
             {{-- У логотипі вже є назва школи, тому поруч дублюємо лише призначення сервісу. --}}
             <a href="{{ route('home') }}" class="flex min-w-0 items-center gap-3">
-                <x-school-logo class="h-10 w-auto shrink-0 sm:h-12" />
+                <span class="flex shrink-0 items-center rounded-lg bg-white px-2 py-1">
+                    <x-school-logo class="h-8 w-auto sm:h-9" />
+                </span>
 
-                <span class="hidden border-l border-ink-200 pl-3 text-sm font-semibold leading-tight text-ink-600 sm:block">
-                    Замовлення<br>харчування
+                <span class="hidden text-xs font-bold uppercase leading-tight tracking-[0.14em] text-white/60 sm:block">
+                    Шкільне<br>харчування
                 </span>
             </a>
 
-            <nav class="flex items-center gap-1 text-sm">
+            <nav class="flex items-center gap-2 text-sm">
+                <x-cart-drawer />
+
                 @auth
                     @if ($isStudent)
                         <a href="{{ route('orders.index') }}"
                            @class([
                                'hidden rounded-lg px-3 py-2 font-medium transition sm:block',
-                               'bg-brand-50 text-deep-700' => request()->routeIs('orders.*'),
-                               'text-ink-600 hover:bg-ink-100' => ! request()->routeIs('orders.*'),
+                               'text-brand-500' => request()->routeIs('orders.*'),
+                               'text-white/70 hover:bg-white/10' => ! request()->routeIs('orders.*'),
                            ])>
                             Мої замовлення
                         </a>
@@ -49,22 +53,22 @@
                         <a href="{{ route('settings') }}"
                            @class([
                                'hidden rounded-lg px-3 py-2 font-medium transition sm:block',
-                               'bg-brand-50 text-deep-700' => request()->routeIs('settings*'),
-                               'text-ink-600 hover:bg-ink-100' => ! request()->routeIs('settings*'),
+                               'text-brand-500' => request()->routeIs('settings*'),
+                               'text-white/70 hover:bg-white/10' => ! request()->routeIs('settings*'),
                            ])>
                             Налаштування
                         </a>
                     @endif
 
-                    <div class="flex items-center gap-2 border-l border-ink-200 pl-2 sm:pl-3">
-                        <span class="hidden max-w-[10rem] truncate text-ink-500 lg:inline">
+                    <div class="flex items-center gap-2 border-l border-white/15 pl-2 sm:pl-3">
+                        <span class="hidden max-w-[10rem] truncate text-white/60 lg:inline">
                             {{ $student?->full_name ?? auth()->user()->name }}
                         </span>
 
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
                             <button type="submit"
-                                    class="rounded-lg px-3 py-2 font-medium text-ink-600 transition hover:bg-ink-100">
+                                    class="rounded-lg px-3 py-2 font-medium text-white/70 transition hover:bg-white/10">
                                 Вийти
                             </button>
                         </form>
@@ -73,7 +77,7 @@
                     {{-- Вхід потрібен на оформленні: меню й кошик відкриті всім. --}}
                     @if (! request()->routeIs('login'))
                         <a href="{{ route('login') }}"
-                           class="rounded-lg bg-deep-700 px-4 py-2 font-semibold text-white transition hover:bg-deep-600">
+                           class="rounded-lg border border-white/25 px-4 py-2 font-semibold text-white transition hover:bg-white/10">
                             Увійти
                         </a>
                     @endif
@@ -84,28 +88,28 @@
         {{-- На телефоні навігація не влазить у шапку — виносимо окремим рядком. --}}
         @auth
             @if ($isStudent)
-                <nav class="flex border-t border-ink-100 sm:hidden">
+                <nav class="flex border-t border-white/10 sm:hidden">
                     <a href="{{ route('home') }}"
                        @class([
                            'flex-1 py-2.5 text-center text-sm font-medium transition',
-                           'text-deep-700' => request()->routeIs('home') || request()->routeIs('menu'),
-                           'text-ink-500' => ! (request()->routeIs('home') || request()->routeIs('menu')),
+                           'text-brand-500' => request()->routeIs('home') || request()->routeIs('menu'),
+                           'text-white/60' => ! (request()->routeIs('home') || request()->routeIs('menu')),
                        ])>
                         Меню
                     </a>
                     <a href="{{ route('orders.index') }}"
                        @class([
                            'flex-1 py-2.5 text-center text-sm font-medium transition',
-                           'text-deep-700' => request()->routeIs('orders.*'),
-                           'text-ink-500' => ! request()->routeIs('orders.*'),
+                           'text-brand-500' => request()->routeIs('orders.*'),
+                           'text-white/60' => ! request()->routeIs('orders.*'),
                        ])>
                         Замовлення
                     </a>
                     <a href="{{ route('settings') }}"
                        @class([
                            'flex-1 py-2.5 text-center text-sm font-medium transition',
-                           'text-deep-700' => request()->routeIs('settings*'),
-                           'text-ink-500' => ! request()->routeIs('settings*'),
+                           'text-brand-500' => request()->routeIs('settings*'),
+                           'text-white/60' => ! request()->routeIs('settings*'),
                        ])>
                         Налаштування
                     </a>
