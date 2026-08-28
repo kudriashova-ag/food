@@ -39,6 +39,9 @@ class SchoolSettings extends Page implements HasForms
         'deadline_reminder_hours' => '3',
         'deadline_reminder_enabled' => '1',
         'cancel_reminder_enabled' => '0',
+        'support_email' => '',
+        'support_telegram_chat_id' => '',
+        'service_info_text' => '',
     ];
 
     /** @var array<string, mixed>|null */
@@ -93,6 +96,31 @@ class SchoolSettings extends Page implements HasForms
 
                         Toggle::make('cancel_reminder_enabled')
                             ->label('Нагадувати про дедлайн скасування'),
+                    ]),
+
+                Section::make('Звернення з сайту')
+                    ->description('Куди надсилати питання з форми «Допомога». Порожні поля означають, що канал вимкнено.')
+                    ->columns(2)
+                    ->schema([
+                        TextInput::make('support_email')
+                            ->label('Email для звернень')
+                            ->email()
+                            ->maxLength(255)
+                            ->helperText('Без нього листи не надсилаються.'),
+
+                        TextInput::make('support_telegram_chat_id')
+                            ->label('Telegram chat ID адміністратора')
+                            ->maxLength(64)
+                            ->helperText('Дізнатися свій ID можна в бота @userinfobot.'),
+                    ]),
+
+                Section::make('Інформація про сервіс')
+                    ->description('Текст на сторінці «Інформація про сервіс». Порожнє поле — показується стандартний опис.')
+                    ->schema([
+                        Textarea::make('service_info_text')
+                            ->label('Довільний текст від школи')
+                            ->rows(4)
+                            ->helperText('Додається до загального опису — сюди зручно вписати особливості вашої школи.'),
                     ]),
             ])
             ->statePath('data');

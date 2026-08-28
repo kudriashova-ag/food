@@ -40,54 +40,131 @@
                 </span>
             </a>
 
-            <nav class="flex items-center gap-2 text-sm">
+            <nav class="flex items-center gap-1 text-sm sm:gap-2">
                 {{-- Кошик збирають і без входу, тож він у шапці завжди:
                      інакше гість не бачить, що вже поклав. --}}
                 <x-cart-button />
 
                 @auth
-                    @if ($isStudent)
-                        <a href="{{ route('orders.index') }}"
-                           @class([
-                               'hidden rounded-lg px-3 py-2 font-medium transition sm:block',
-                               'bg-brand-100 text-deep-800' => request()->routeIs('orders.*'),
-                               'text-ink-600 hover:bg-ink-100' => ! request()->routeIs('orders.*'),
-                           ])>
-                            Мої замовлення
-                        </a>
+                    <x-header-menu>
+                        <x-slot:trigger>
+                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full
+                                         bg-deep-700 text-xs font-bold text-white">
+                                {{ mb_substr($student?->full_name ?? auth()->user()->name, 0, 1) }}
+                            </span>
 
-                        <a href="{{ route('settings') }}"
-                           @class([
-                               'hidden rounded-lg px-3 py-2 font-medium transition sm:block',
-                               'bg-brand-100 text-deep-800' => request()->routeIs('settings*'),
-                               'text-ink-600 hover:bg-ink-100' => ! request()->routeIs('settings*'),
-                           ])>
-                            Налаштування
-                        </a>
-                    @endif
+                            <span class="hidden max-w-[9rem] truncate sm:inline">
+                                {{ $student?->full_name ?? auth()->user()->name }}
+                            </span>
 
-                    <div class="flex items-center gap-2 border-l border-ink-200 pl-2 sm:pl-3">
-                        <span class="hidden max-w-[10rem] truncate text-ink-500 lg:inline">
-                            {{ $student?->full_name ?? auth()->user()->name }}
-                        </span>
+                            <svg class="h-4 w-4 shrink-0 text-ink-400 transition-transform group-open:rotate-180"
+                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="m6 9 6 6 6-6"/>
+                            </svg>
+                        </x-slot:trigger>
+
+                        @if ($isStudent)
+                            <a href="{{ route('orders.index') }}" @class([
+                                   'flex items-center gap-2.5 px-4 py-2.5 transition hover:bg-ink-50',
+                                   'bg-brand-100 text-deep-800' => request()->routeIs('orders.*'),
+                                   'text-ink-700' => ! request()->routeIs('orders.*'),
+                               ])>
+                                <svg class="h-4 w-4 shrink-0 text-ink-400" viewBox="0 0 24 24" fill="none"
+                                     stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                     stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                    <path d="M14 2v6h6M9 15h6"/>
+                                </svg>
+                                Мої замовлення
+                            </a>
+
+                            <a href="{{ route('settings') }}" @class([
+                                   'flex items-center gap-2.5 px-4 py-2.5 transition hover:bg-ink-50',
+                                   'bg-brand-100 text-deep-800' => request()->routeIs('settings*'),
+                                   'text-ink-700' => ! request()->routeIs('settings*'),
+                               ])>
+                                <svg class="h-4 w-4 shrink-0 text-ink-400" viewBox="0 0 24 24" fill="none"
+                                     stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                     stroke-linejoin="round" aria-hidden="true">
+                                    <circle cx="12" cy="12" r="3"/>
+                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                                </svg>
+                                Налаштування
+                            </a>
+
+                            <div class="my-1 border-t border-ink-100"></div>
+                        @endif
 
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
                             <button type="submit"
-                                    class="rounded-lg px-3 py-2 font-medium text-ink-600 transition hover:bg-ink-100">
+                                    class="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-ink-700
+                                           transition hover:bg-red-50 hover:text-red-700">
+                                <svg class="h-4 w-4 shrink-0 text-ink-400" viewBox="0 0 24 24" fill="none"
+                                     stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                     stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                                    <path d="m16 17 5-5-5-5M21 12H9"/>
+                                </svg>
                                 Вийти
                             </button>
                         </form>
-                    </div>
+                    </x-header-menu>
                 @else
                     {{-- Вхід потрібен на оформленні: меню й кошик відкриті всім. --}}
-                    @if (! request()->routeIs('login'))
-                        <a href="{{ route('login') }}"
-                           class="rounded-lg bg-deep-700 px-4 py-2 font-semibold text-white transition hover:bg-deep-600">
-                            Увійти
-                        </a>
-                    @endif
+                    <a href="{{ route('login') }}" title="Увійти"
+                       @class([
+                           'flex h-10 w-10 items-center justify-center rounded-full transition',
+                           'bg-brand-100 text-deep-800' => request()->routeIs('login'),
+                           'text-ink-600 hover:bg-ink-100' => ! request()->routeIs('login'),
+                       ])>
+                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                        </svg>
+                        <span class="sr-only">Увійти</span>
+                    </a>
                 @endauth
+
+                <x-header-menu>
+                    <x-slot:trigger>
+                        <span class="flex h-6 w-6 items-center justify-center" title="Довідка">
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/>
+                            </svg>
+                            <span class="sr-only">Довідка</span>
+                        </span>
+                    </x-slot:trigger>
+
+                    <a href="{{ route('support.info') }}" @class([
+                           'flex items-center gap-2.5 px-4 py-2.5 transition hover:bg-ink-50',
+                           'bg-brand-100 text-deep-800' => request()->routeIs('support.info'),
+                           'text-ink-700' => ! request()->routeIs('support.info'),
+                       ])>
+                        <svg class="h-4 w-4 shrink-0 text-ink-400" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                             stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>
+                        </svg>
+                        Інформація про сервіс
+                    </a>
+
+                    <a href="{{ route('support.help') }}" @class([
+                           'flex items-center gap-2.5 px-4 py-2.5 transition hover:bg-ink-50',
+                           'bg-brand-100 text-deep-800' => request()->routeIs('support.help'),
+                           'text-ink-700' => ! request()->routeIs('support.help'),
+                       ])>
+                        <svg class="h-4 w-4 shrink-0 text-ink-400" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                             stroke-linejoin="round" aria-hidden="true">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                        </svg>
+                        Допомога
+                    </a>
+                </x-header-menu>
             </nav>
         </div>
 

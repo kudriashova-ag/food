@@ -153,7 +153,8 @@ class MenuPageTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        preg_match_all('/<details\b.*?<\/details>/s', $html, $matches);
+        // Тільки картки днів: у шапці на <details> зроблені й випадні меню.
+        preg_match_all('/<details\b(?![^>]*data-header-menu).*?<\/details>/s', $html, $matches);
 
         return $matches[0];
     }

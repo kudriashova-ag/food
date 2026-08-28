@@ -10,6 +10,7 @@ use App\Http\Controllers\NotificationSettingsController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\SchedulerController;
 use App\Http\Controllers\SupplierListController;
+use App\Http\Controllers\SupportController;
 use App\Http\Controllers\TelegramWebhookController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -37,6 +38,11 @@ Route::middleware('consent')->group(function (): void {
     Route::get('/', SupplierListController::class)->name('home');
 
     Route::get('/suppliers/{supplier:slug}', MenuController::class)->name('menu');
+
+    // Довідка відкрита всім: питання виникають і до входу.
+    Route::get('/about', [SupportController::class, 'info'])->name('support.info');
+    Route::get('/help', [SupportController::class, 'show'])->name('support.help');
+    Route::post('/help', [SupportController::class, 'store'])->name('support.store');
 
     Route::get('/cart', [CartController::class, 'show'])->name('cart');
     Route::post('/cart/{supplier:slug}/{date}', [CartController::class, 'storeDay'])->name('cart.store-day');
