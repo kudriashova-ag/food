@@ -208,6 +208,48 @@ class StudentOrderingPagesTest extends TestCase
             ->assertSee('Скасувати день');
     }
 
+    public function test_day_without_a_published_menu_reads_as_a_day_off(): void
+    {
+        // У тижні заповнений лише понеділок — решта днів меню не мають.
+        // «Харчування не замовлено» там вводило б в оману: замовляти нема чого.
+        $this->placeOrder();
+
+        $this->get(route('orders.index', ['week' => self::SERVICE_DATE]))
+            ->assertOk()
+            ->assertSee('Вихідний')
+            ->assertDontSee('Харчування не замовлено');
+    }
+
+    public function test_working_day_without_an_order_still_says_so(): void
+    {
+        MenuDay::create([
+            'supplier_id' => $this->supplier->id,
+            'date' => '2026-08-18',
+            'is_working_day' => true,
+            'published_at' => now(),
+        ]);
+
+        $this->placeOrder();
+
+        $this->get(route('orders.index', ['week' => self::SERVICE_DATE]))
+            ->assertOk()
+            ->assertSee('Харчування не замовлено');
+    }
+
+    public function test_holiday_is_named_on_the_orders_page(): void
+    {
+        \App\Models\NonWorkingDay::create([
+            'date' => '2026-08-18',
+            'title' => 'День Незалежності',
+        ]);
+
+        $this->placeOrder();
+
+        $this->get(route('orders.index', ['week' => self::SERVICE_DATE]))
+            ->assertOk()
+            ->assertSee('День Незалежності');
+    }
+
     public function test_line_is_cancelled_from_the_orders_page(): void
     {
         $order = $this->placeOrder();

@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\DeadlinePassedException;
 use App\Exceptions\EmptyCartException;
+use App\Models\MenuDay;
+use App\Models\NonWorkingDay;
 use App\Models\OrderLine;
 use App\Services\Deadlines\DeadlineService;
 use App\Services\Orders\CartService;
@@ -65,11 +67,26 @@ class OrderController extends Controller
             ->orderBy('supplier_id')
             ->get();
 
+        // Порожній день має різні причини: свято, невиставлене меню або просто
+        // незамовлене харчування. Учневі важливо бачити, що саме.
+        $holidays = NonWorkingDay::titlesBetween($weekStart, $weekEnd);
+
+        $workingDates = MenuDay::query()
+            ->visibleToStudents()
+            ->whereDate('date', '>=', $weekStart->toDateString())
+            ->whereDate('date', '<=', $weekEnd->toDateString())
+            ->pluck('date')
+            ->map(fn ($date): string => CarbonImmutable::parse($date)->toDateString())
+            ->unique()
+            ->all();
+
         $days = collect(range(0, 6))
             ->map(fn (int $offset): CarbonImmutable => $weekStart->addDays($offset))
             ->mapWithKeys(fn (CarbonImmutable $date): array => [
                 $date->toDateString() => [
                     'date' => $date,
+                    'holiday' => $holidays[$date->toDateString()] ?? null,
+                    'isWorkingDay' => in_array($date->toDateString(), $workingDates, true),
                     'suppliers' => $lines
                         ->filter(fn (OrderLine $line): bool => $line->service_date->toDateString() === $date->toDateString())
                         ->groupBy('supplier_id')

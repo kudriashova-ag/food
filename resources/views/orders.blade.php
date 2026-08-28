@@ -188,7 +188,20 @@
                     @endif
                 </div>
             @empty
-                <div class="px-4 py-3 text-sm text-ink-400">Харчування не замовлено</div>
+                {{-- Порожній день має різні причини, і плутати їх не варто:
+                     у вихідний замовляти нема чого, а незамовлений робочий день
+                     ще можна встигнути закрити. --}}
+                @if ($day['holiday'] || ! $day['isWorkingDay'])
+                    <div class="flex items-center gap-2 px-4 py-3 text-sm text-ink-400">
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/>
+                        </svg>
+                        Вихідний@if ($day['holiday']) · {{ $day['holiday'] }} @endif
+                    </div>
+                @else
+                    <div class="px-4 py-3 text-sm text-ink-400">Харчування не замовлено</div>
+                @endif
             @endforelse
         </section>
     @endforeach
