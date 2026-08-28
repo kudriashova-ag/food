@@ -208,6 +208,42 @@ class StudentOrderingPagesTest extends TestCase
             ->assertSee('Скасувати день');
     }
 
+    public function test_student_is_told_where_notifications_go(): void
+    {
+        $this->user->update(['email' => 'mariia@example.com']);
+
+        foreach ([route('cart'), route('orders.index')] as $url) {
+            $this->get($url)
+                ->assertOk()
+                ->assertSee('mariia@example.com')
+                ->assertSee('Налаштувати');
+        }
+    }
+
+    public function test_student_without_email_is_warned(): void
+    {
+        $this->user->update(['email' => null]);
+
+        $this->get(route('orders.index'))
+            ->assertOk()
+            ->assertSee('Сповіщення нікуди не надходять');
+    }
+
+    public function test_hint_disappears_once_telegram_is_connected(): void
+    {
+        $this->user->update(['email' => 'mariia@example.com']);
+
+        $this->student->telegramLinks()->create([
+            'chat_id' => '100200',
+            'is_active' => true,
+            'linked_at' => now(),
+        ]);
+
+        $this->get(route('orders.index'))
+            ->assertOk()
+            ->assertDontSee('Налаштувати');
+    }
+
     public function test_order_line_keys_are_integers(): void
     {
         // На хостингу PDO віддавав ключі рядками, і строге "1" === 1 у перевірці

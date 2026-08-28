@@ -157,6 +157,16 @@ class GuestCheckoutTest extends TestCase
             ->assertSee('60,00');
     }
 
+    public function test_guest_is_not_bothered_with_notification_settings(): void
+    {
+        // Гостю налаштовувати нічого — у нього ще немає кабінету.
+        $this->addDayToCart();
+
+        $this->get(route('cart'))
+            ->assertOk()
+            ->assertDontSee('Налаштувати');
+    }
+
     public function test_guest_cannot_place_an_order(): void
     {
         $this->addDayToCart();

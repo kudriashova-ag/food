@@ -8,6 +8,8 @@
         <a href="{{ route('home') }}" class="btn-secondary py-2 text-sm">Замовити ще</a>
     </div>
 
+    <x-notification-hint />
+
     <div class="card mb-4 flex items-center justify-between gap-2 px-2 py-1.5 text-sm">
         <a href="{{ route('orders.index', ['week' => $weekStart->subWeek()->toDateString()]) }}"
            class="flex items-center gap-1 rounded-lg px-3 py-2 font-medium text-ink-500 transition hover:bg-ink-100 hover:text-ink-900">

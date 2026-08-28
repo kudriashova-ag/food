@@ -23,6 +23,8 @@
         </div>
     @endif
 
+    <x-notification-hint />
+
     @forelse ($groups as $group)
         <section class="card mb-4 overflow-hidden">
             <header class="flex items-center gap-2.5 border-b border-ink-100 bg-ink-50/60 px-4 py-3">
