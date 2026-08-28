@@ -142,6 +142,20 @@ class GuestCheckoutTest extends TestCase
         $this->assertSame(1, CartItem::query()->count());
     }
 
+    public function test_guest_sees_the_cart_in_the_header(): void
+    {
+        // Кошик збирають до входу — гість має бачити, що вже поклав.
+        $this->get(route('menu', $this->supplier->slug))
+            ->assertOk()
+            ->assertSee(route('cart'));
+
+        $this->addDayToCart();
+
+        $this->get(route('menu', $this->supplier->slug))
+            ->assertOk()
+            ->assertSee('60,00');
+    }
+
     public function test_guest_cannot_place_an_order(): void
     {
         $this->addDayToCart();

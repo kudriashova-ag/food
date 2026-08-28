@@ -41,11 +41,12 @@
             </a>
 
             <nav class="flex items-center gap-2 text-sm">
-                {{-- Кошик прив'язаний до учня, тож гостю показувати нічого. --}}
+                {{-- Кошик збирають і без входу, тож він у шапці завжди:
+                     інакше гість не бачить, що вже поклав. --}}
+                <x-cart-button />
+
                 @auth
                     @if ($isStudent)
-                        <x-cart-button />
-
                         <a href="{{ route('orders.index') }}"
                            @class([
                                'hidden rounded-lg px-3 py-2 font-medium transition sm:block',
