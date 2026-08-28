@@ -18,6 +18,9 @@ class MenuDayForm
     public static function configure(Schema $schema): Schema
     {
         return $schema
+            // Секції одна під одною: список страв широкий, у половині екрана
+            // він тісниться, а «День» поруч лишає порожнє місце.
+            ->columns(1)
             ->components([
                 Section::make('День')
                     ->columns(3)

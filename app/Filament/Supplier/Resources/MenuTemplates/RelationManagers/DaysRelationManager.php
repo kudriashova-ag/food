@@ -23,6 +23,9 @@ class DaysRelationManager extends RelationManager
     public function form(Schema $schema): Schema
     {
         return $schema
+            // Як і в меню дня: секції одна під одною, інакше список страв
+            // тісниться в половині ширини вікна.
+            ->columns(1)
             ->components([
                 Section::make()
                     ->schema([
