@@ -197,6 +197,43 @@ class GuestCheckoutTest extends TestCase
         $this->assertSame(0, CartItem::query()->count());
     }
 
+    public function test_day_is_added_without_reloading_the_page(): void
+    {
+        // Меню додає день через fetch — у відповідь потрібен свіжий підсумок
+        // кошика, щоб оновити шапку й нижню панель на місці.
+        $response = $this->postJson(
+            route('cart.store-day', [$this->supplier->slug, self::SERVICE_DATE]),
+            ['qty' => [$this->complex->id => [$this->cutlet->id => 2]]],
+        );
+
+        $response->assertOk()
+            ->assertJson([
+                'ok' => true,
+                'cart' => ['count' => 2, 'total' => 120],
+            ])
+            ->assertJsonPath('message', fn (string $m): bool => str_contains($m, '17.08.2026'));
+    }
+
+    public function test_empty_selection_answers_with_an_error_for_fetch(): void
+    {
+        $this->postJson(route('cart.store-day', [$this->supplier->slug, self::SERVICE_DATE]), ['qty' => []])
+            ->assertStatus(422)
+            ->assertJson(['ok' => false])
+            ->assertJsonPath('cart.count', 0);
+
+        $this->assertSame(0, CartItem::query()->count());
+    }
+
+    public function test_form_without_javascript_still_redirects_back(): void
+    {
+        $this->from(route('menu', $this->supplier->slug))
+            ->post(route('cart.store-day', [$this->supplier->slug, self::SERVICE_DATE]), [
+                'qty' => [$this->complex->id => [$this->cutlet->id => 1]],
+            ])
+            ->assertRedirect(route('menu', $this->supplier->slug))
+            ->assertSessionHas('status');
+    }
+
     public function test_cart_item_keys_are_integers(): void
     {
         // На хостингу PDO віддавав cart_id рядком, і строге порівняння "1" === 1

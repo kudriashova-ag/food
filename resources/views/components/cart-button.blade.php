@@ -1,5 +1,9 @@
-{{-- Кошик у шапці: показує кількість і суму, веде на сторінку кошика. --}}
+{{-- Кошик у шапці: показує кількість і суму, веде на сторінку кошика.
+
+     Обидва стани (порожній / з позиціями) є в розмітці завжди: після додавання
+     дня без перезавантаження JS лише перемикає їх видимість. --}}
 <a href="{{ route('cart') }}"
+   data-cart-link
    @class([
        'flex items-center gap-2 rounded-full px-3.5 py-2 font-bold transition sm:px-4',
        'bg-brand-500 text-deep-900 hover:bg-brand-400' => $count > 0,
@@ -11,12 +15,17 @@
         <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
     </svg>
 
-    @if ($count > 0)
-        <span class="text-sm tabular-nums">{{ number_format($total, 2, ',', ' ') }} ₴</span>
-        <span class="flex h-5 min-w-5 items-center justify-center rounded-full bg-deep-700 px-1 text-[11px] text-white">
-            {{ $count }}
+    <span class="flex items-center gap-2" data-cart-filled @if ($count === 0) hidden @endif>
+        <span class="text-sm tabular-nums">
+            <span data-cart-total>{{ number_format($total, 2, ',', ' ') }}</span> ₴
         </span>
-    @else
+        <span class="flex h-5 min-w-5 items-center justify-center rounded-full bg-deep-700 px-1 text-[11px] text-white"
+              data-cart-count>{{ $count }}</span>
+    </span>
+
+    {{-- Слово «Кошик» ховається на вузьких екранах; тримаємо це на батьківському
+         span, щоб атрибут hidden не сперечався з класом sm:inline. --}}
+    <span data-cart-empty @if ($count > 0) hidden @endif>
         <span class="hidden text-sm sm:inline">Кошик</span>
-    @endif
+    </span>
 </a>

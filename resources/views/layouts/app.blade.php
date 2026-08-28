@@ -124,8 +124,11 @@
     </header>
 
     <main class="mx-auto w-full max-w-5xl flex-1 px-4 py-6 @yield('main-padding', 'pb-28')">
+        {{-- Повідомлення показує JS спливаючим вікном і прибирає ці блоки.
+             Без JS вони лишаються на місці звичайною смужкою. --}}
         @if (session('status'))
-            <div class="mb-4 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+            <div data-flash="status"
+                 class="mb-4 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
                 <svg class="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M20 6 9 17l-5-5"/>
@@ -135,7 +138,8 @@
         @endif
 
         @if (session('error'))
-            <div class="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+            <div data-flash="error"
+                 class="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
                 <svg class="mt-0.5 h-5 w-5 shrink-0 text-red-600" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>

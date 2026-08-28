@@ -8,6 +8,7 @@ use App\Models\CartItem;
 use App\Models\MenuDay;
 use App\Models\Supplier;
 use App\Services\Orders\CartService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -33,7 +34,7 @@ class CartController extends Controller
     }
 
     /** Додає вибір за один день цілком — щоб замовлення на тиждень робилося кількома дотиками. */
-    public function storeDay(Request $request, Supplier $supplier, string $date): RedirectResponse
+    public function storeDay(Request $request, Supplier $supplier, string $date): RedirectResponse|JsonResponse
     {
         $cart = $this->cart->current();
 
@@ -73,14 +74,40 @@ class CartController extends Controller
                 }
             }
         } catch (DeadlinePassedException|MenuUnavailableException $e) {
-            return back()->with('error', $e->getMessage());
+            return $this->dayResponse($request, error: $e->getMessage());
         }
 
         if ($added === 0) {
-            return back()->with('error', 'Нічого не обрано — позначте страви й спробуйте ще раз.');
+            return $this->dayResponse($request, error: 'Нічого не обрано — позначте страви й спробуйте ще раз.');
         }
 
-        return back()->with('status', "Додано в кошик: {$menuDay->date->translatedFormat('d.m.Y')}.");
+        return $this->dayResponse(
+            $request,
+            status: "Додано в кошик: {$menuDay->date->translatedFormat('d.m.Y')}.",
+        );
+    }
+
+    /**
+     * Меню додає день без перезавантаження сторінки, тому на fetch віддаємо
+     * JSON зі свіжим підсумком кошика. Звичайний POST із форми (браузер без JS)
+     * і далі отримує редирект назад.
+     */
+    private function dayResponse(Request $request, ?string $status = null, ?string $error = null): RedirectResponse|JsonResponse
+    {
+        if ($request->expectsJson()) {
+            $cart = $this->cart->currentIfExists();
+
+            return response()->json([
+                'ok' => $error === null,
+                'message' => $status ?? $error,
+                'cart' => [
+                    'count' => $this->cart->count($cart),
+                    'total' => $this->cart->total($cart),
+                ],
+            ], $error === null ? 200 : 422);
+        }
+
+        return back()->with($error === null ? 'status' : 'error', $status ?? $error);
     }
 
     public function updateItem(Request $request, CartItem $item): RedirectResponse
