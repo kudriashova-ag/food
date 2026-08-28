@@ -131,6 +131,68 @@ class StudentImportTest extends TestCase
         $this->assertTrue(\Illuminate\Support\Facades\Hash::check($credentials['password'], $user->password));
     }
 
+    public function test_password_from_the_file_is_used_instead_of_a_generated_one(): void
+    {
+        $rows = $this->service->parse($this->csv([
+            'ПІБ;Клас;Логін;Пароль',
+            'Іваненко Марія;5-А;ivanenko.mariia;Kvitka2026',
+        ]));
+
+        $this->assertSame('Kvitka2026', $rows[0]->password);
+
+        $result = $this->service->apply($rows, null, 'spysok.csv', 2026);
+
+        $user = User::query()->where('login', 'ivanenko.mariia')->firstOrFail();
+
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('Kvitka2026', $user->password));
+        $this->assertSame('Kvitka2026', $result['credentials']->first()['password']);
+    }
+
+    public function test_password_column_may_be_left_empty_for_some_rows(): void
+    {
+        // Половина школи вже має паролі, решті хай згенерує система.
+        $rows = $this->service->parse($this->csv([
+            'ПІБ;Клас;Логін;Пароль',
+            'Іваненко Марія;5-А;ivanenko.mariia;Kvitka2026',
+            'Петренко Іван;5-А;petrenko.ivan;',
+        ]));
+
+        $this->service->apply($rows, null, 'spysok.csv', 2026);
+
+        $mariia = User::query()->where('login', 'ivanenko.mariia')->firstOrFail();
+        $ivan = User::query()->where('login', 'petrenko.ivan')->firstOrFail();
+
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('Kvitka2026', $mariia->password));
+        $this->assertFalse(\Illuminate\Support\Facades\Hash::check('Kvitka2026', $ivan->password));
+    }
+
+    public function test_short_password_is_rejected(): void
+    {
+        $rows = $this->service->parse($this->csv([
+            'ПІБ;Клас;Логін;Пароль',
+            'Іваненко Марія;5-А;ivanenko.mariia;123',
+        ]));
+
+        $this->assertFalse($rows[0]->isValid());
+        $this->assertStringContainsString('коротший', $rows[0]->error);
+    }
+
+    public function test_password_from_the_file_overwrites_an_existing_one(): void
+    {
+        // Школа роздала нові паролі — повторний імпорт має їх застосувати.
+        $student = $this->existingStudent('ivanenko.mariia', 'Іваненко Марія');
+
+        $rows = $this->service->parse($this->csv([
+            'ПІБ;Клас;Логін;Пароль',
+            'Іваненко Марія;5-А;ivanenko.mariia;NoviyParol1',
+        ]));
+
+        $result = $this->service->apply($rows, null, 'spysok.csv', 2026);
+
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('NoviyParol1', $student->user->fresh()->password));
+        $this->assertCount(1, $result['credentials']);
+    }
+
     public function test_repeated_import_updates_and_does_not_duplicate(): void
     {
         $student = $this->existingStudent('ivanenko.mariia', 'Іваненко Марія');

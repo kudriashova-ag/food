@@ -18,6 +18,8 @@ final class StudentImportRow
         public readonly ?string $letter = null,
         public readonly ?string $login = null,
         public readonly ?string $email = null,
+        /** Пароль із файлу; null — згенеруємо самі. */
+        public readonly ?string $password = null,
         public string $action = self::ACTION_CREATE,
         public ?string $error = null,
     ) {}

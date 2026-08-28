@@ -58,7 +58,7 @@ class ImportStudents extends Page implements HasForms
         return $schema
             ->components([
                 Section::make('Файл списку')
-                    ->description('Excel або CSV з колонками: ПІБ, Клас, Логін, E-mail (необов\'язково).')
+                    ->description('Excel або CSV з колонками: ПІБ, Клас, Логін, E-mail і Пароль (два останні — необов\'язкові). Без колонки «Пароль» він згенерується автоматично.')
                     ->columns(2)
                     ->schema([
                         FileUpload::make('file')

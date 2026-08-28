@@ -28,7 +28,11 @@ class StudentImportService
         'class' => ['клас', 'class'],
         'login' => ['логін', 'логин', 'login'],
         'email' => ['e-mail', 'email', 'пошта'],
+        'password' => ['пароль', 'password'],
     ];
+
+    /** Коротший пароль учень не запам'ятає, а надто короткий ще й небезпечний. */
+    public const MIN_PASSWORD = 6;
 
     /** @return Collection<int, StudentImportRow> */
     public function parse(string $path): Collection
@@ -96,7 +100,8 @@ class StudentImportService
                 $user = User::query()->where('login', $row->login)->first();
 
                 if ($user === null) {
-                    $password = Str::password(8, symbols: false);
+                    // Пароль із файлу, якщо школа його задала; інакше генеруємо.
+                    $password = $row->password ?? Str::password(8, symbols: false);
 
                     $user = User::create([
                         'name' => $row->fullName,
@@ -116,11 +121,23 @@ class StudentImportService
 
                     $created++;
                 } else {
-                    // Пароль при повторному імпорті не чіпаємо — учень уже ним користується.
                     $user->update([
                         'name' => $row->fullName,
                         'email' => $row->email ?? $user->email,
                     ]);
+
+                    // Пароль перезаписуємо лише тоді, коли він явно вказаний у файлі:
+                    // без колонки повторний імпорт не має скидати те, чим учень користується.
+                    if ($row->password !== null) {
+                        $user->update(['password' => $row->password]);
+
+                        $credentials->push([
+                            'full_name' => $row->fullName,
+                            'class' => $row->className(),
+                            'login' => $row->login,
+                            'password' => $row->password,
+                        ]);
+                    }
 
                     $updated++;
                 }
@@ -193,6 +210,7 @@ class StudentImportService
         $login = $this->cell($row, $map, 'login');
         $rawClass = $this->cell($row, $map, 'class');
         $email = $this->cell($row, $map, 'email') ?: null;
+        $password = $this->cell($row, $map, 'password') ?: null;
 
         [$grade, $letter] = $this->parseClass($rawClass);
 
@@ -203,6 +221,7 @@ class StudentImportService
             letter: $letter,
             login: $login ?: null,
             email: $email,
+            password: $password,
         );
 
         if ($fullName === '') {
@@ -225,6 +244,10 @@ class StudentImportService
 
         if ($email !== null && ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return $parsed->fail("Некоректний e-mail: «{$email}»");
+        }
+
+        if ($password !== null && mb_strlen($password) < self::MIN_PASSWORD) {
+            return $parsed->fail('Пароль коротший за '.self::MIN_PASSWORD.' символів');
         }
 
         $existing = User::query()->where('login', $login)->first();

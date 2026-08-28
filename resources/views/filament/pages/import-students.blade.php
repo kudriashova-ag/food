@@ -54,6 +54,7 @@
                                 <th class="py-2 pr-3 font-medium">Клас</th>
                                 <th class="py-2 pr-3 font-medium">Логін</th>
                                 <th class="py-2 pr-3 font-medium">E-mail</th>
+                                <th class="py-2 pr-3 font-medium">Пароль</th>
                                 <th class="py-2 font-medium">Дія</th>
                             </tr>
                         </thead>
@@ -65,6 +66,10 @@
                                     <td class="py-1.5 pr-3">{{ $row->className() ?? '—' }}</td>
                                     <td class="py-1.5 pr-3 font-mono text-xs">{{ $row->login ?? '—' }}</td>
                                     <td class="py-1.5 pr-3 text-gray-500">{{ $row->email ?? '—' }}</td>
+                                    {{-- Сам пароль не показуємо — лише звідки він візьметься. --}}
+                                    <td class="py-1.5 pr-3 text-gray-500">
+                                        {{ $row->password === null ? 'згенерується' : 'з файлу' }}
+                                    </td>
                                     <td class="py-1.5">
                                         @if ($row->isValid())
                                             <span @class([
