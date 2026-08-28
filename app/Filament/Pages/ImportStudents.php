@@ -18,6 +18,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
@@ -99,7 +100,7 @@ class ImportStudents extends Page implements HasForms
             return collect();
         }
 
-        return app(StudentImportService::class)->parse(Storage::disk('local')->path($this->filePath()));
+        return app(StudentImportService::class)->parse($this->filePath());
     }
 
     /** @return array{create: int, update: int, error: int, total: int} */
@@ -159,7 +160,13 @@ class ImportStudents extends Page implements HasForms
             : null;
 
         // Файл більше не потрібен: повторний імпорт починається з нового завантаження.
-        Storage::disk('local')->delete($this->filePath());
+        // Шлях абсолютний (файл лежить у сховищі Livewire), тому прибираємо напряму.
+        $path = $this->filePath();
+
+        if ($path !== null && is_file($path)) {
+            @unlink($path);
+        }
+
         $this->data['file'] = null;
 
         Notification::make()
@@ -191,6 +198,13 @@ class ImportStudents extends Page implements HasForms
         );
     }
 
+    /**
+     * Абсолютний шлях до вибраного файлу.
+     *
+     * Форма тут не зберігається, тож FileUpload не переносить файл на свій диск —
+     * поки сторінка відкрита, це TemporaryUploadedFile у сховищі Livewire.
+     * Читаємо звідти, а не з imports/, куди файл так і не потрапляє.
+     */
     private function filePath(): ?string
     {
         $file = $this->data['file'] ?? null;
@@ -199,6 +213,16 @@ class ImportStudents extends Page implements HasForms
             $file = reset($file) ?: null;
         }
 
-        return is_string($file) ? $file : null;
+        if ($file instanceof TemporaryUploadedFile) {
+            return $file->getRealPath() ?: null;
+        }
+
+        if (! is_string($file) || $file === '') {
+            return null;
+        }
+
+        $path = Storage::disk('local')->path($file);
+
+        return is_file($path) ? $path : null;
     }
 }
