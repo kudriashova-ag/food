@@ -109,6 +109,44 @@ class AdminPanelTest extends TestCase
             ->assertOk();
     }
 
+    public function test_empty_classes_are_purged_and_populated_ones_survive(): void
+    {
+        $empty = SchoolClass::create(['grade' => 3, 'letter' => 'В', 'academic_year' => 2026]);
+        $alsoEmpty = SchoolClass::create(['grade' => 9, 'letter' => 'Б', 'academic_year' => 2025]);
+        $withStudent = SchoolClass::create(['grade' => 5, 'letter' => 'А', 'academic_year' => 2026]);
+
+        $this->student('Іваненко Марія', $withStudent);
+
+        Livewire::test(ListSchoolClasses::class)
+            ->callAction('purgeEmpty')
+            ->assertHasNoActionErrors();
+
+        $this->assertNull($empty->fresh());
+        $this->assertNull($alsoEmpty->fresh());
+        $this->assertNotNull($withStudent->fresh());
+    }
+
+    public function test_purge_is_hidden_when_every_class_has_students(): void
+    {
+        $class = SchoolClass::create(['grade' => 5, 'letter' => 'А', 'academic_year' => 2026]);
+        $this->student('Іваненко Марія', $class);
+
+        Livewire::test(ListSchoolClasses::class)
+            ->assertActionHidden('purgeEmpty');
+    }
+
+    public function test_class_with_students_cannot_be_deleted_from_the_row(): void
+    {
+        // nullOnDelete лишив би учня без класу — краще не давати видалити взагалі.
+        $class = SchoolClass::create(['grade' => 5, 'letter' => 'А', 'academic_year' => 2026]);
+        $student = $this->student('Іваненко Марія', $class);
+
+        Livewire::test(ListSchoolClasses::class)
+            ->assertTableActionHidden('delete', $class);
+
+        $this->assertNotNull($student->fresh()->school_class_id);
+    }
+
     public function test_promotion_moves_classes_and_graduates_the_oldest(): void
     {
         $fifth = SchoolClass::create(['grade' => 5, 'letter' => 'А', 'academic_year' => 2026]);

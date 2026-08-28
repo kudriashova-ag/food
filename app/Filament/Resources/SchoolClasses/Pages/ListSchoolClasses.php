@@ -14,6 +14,7 @@ class ListSchoolClasses extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            SchoolClassesTable::purgeEmptyAction(),
             SchoolClassesTable::promoteAction(),
             CreateAction::make(),
         ];
