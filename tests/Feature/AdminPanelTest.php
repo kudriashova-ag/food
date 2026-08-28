@@ -7,6 +7,7 @@ use App\Enums\UserRole;
 use App\Filament\Resources\OrderLines\Pages\ListOrderLines;
 use App\Filament\Resources\SchoolClasses\Pages\ListSchoolClasses;
 use App\Filament\Resources\Students\Pages\CreateStudent;
+use App\Filament\Resources\Students\Pages\ListStudents;
 use App\Filament\Resources\Suppliers\Pages\CreateSupplier;
 use App\Models\Dish;
 use App\Models\Order;
@@ -82,6 +83,30 @@ class AdminPanelTest extends TestCase
 
         $this->assertSame('ivanenko.mariia', $student->user->login);
         $this->assertSame(UserRole::Student, $student->user->role);
+    }
+
+    public function test_students_can_be_sorted_by_class(): void
+    {
+        // «Клас» — акцесор із grade і letter: сортування за ним падало на ORDER BY.
+        $fifthA = SchoolClass::create(['grade' => 5, 'letter' => 'А', 'academic_year' => 2026]);
+        $fifthB = SchoolClass::create(['grade' => 5, 'letter' => 'Б', 'academic_year' => 2026]);
+        $tenth = SchoolClass::create(['grade' => 10, 'letter' => 'А', 'academic_year' => 2026]);
+
+        $this->student('Сидоренко Олег', $tenth);
+        $this->student('Петренко Іван', $fifthB);
+        $this->student('Іваненко Марія', $fifthA);
+
+        Livewire::test(ListStudents::class)
+            ->sortTable('schoolClass.title')
+            ->assertOk()
+            ->assertCanSeeTableRecords(
+                Student::query()->get()->sortBy(fn (Student $s): string => sprintf('%02d-%s', $s->schoolClass->grade, $s->schoolClass->letter)),
+                inOrder: true,
+            );
+
+        Livewire::test(ListStudents::class)
+            ->sortTable('schoolClass.title', 'desc')
+            ->assertOk();
     }
 
     public function test_promotion_moves_classes_and_graduates_the_oldest(): void

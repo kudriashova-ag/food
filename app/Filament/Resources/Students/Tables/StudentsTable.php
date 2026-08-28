@@ -15,6 +15,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -32,7 +33,22 @@ class StudentsTable
 
                 TextColumn::make('schoolClass.title')
                     ->label('Клас')
-                    ->sortable(),
+                    // title — акцесор із grade і letter, у базі такої колонки немає.
+                    // Сортуємо підзапитом за самими колонками: join тут ризикований,
+                    // бо на повторному сортуванні додався б удруге.
+                    ->sortable(query: fn (Builder $query, string $direction): Builder => $query
+                        ->orderBy(
+                            SchoolClass::query()
+                                ->select('grade')
+                                ->whereColumn('school_classes.id', 'students.school_class_id'),
+                            $direction,
+                        )
+                        ->orderBy(
+                            SchoolClass::query()
+                                ->select('letter')
+                                ->whereColumn('school_classes.id', 'students.school_class_id'),
+                            $direction,
+                        )),
 
                 TextColumn::make('user.login')
                     ->label('Логін')
