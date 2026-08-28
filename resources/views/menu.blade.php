@@ -16,7 +16,7 @@
         <div class="mt-3 flex items-center gap-4">
             @if ($supplier->logo_path)
                 <img src="{{ Storage::disk('public')->url($supplier->logo_path) }}" alt=""
-                     class="h-14 w-14 shrink-0 rounded-xl object-cover ring-1 ring-ink-200">
+                     class="h-14 w-14 shrink-0 rounded-xl bg-white object-contain p-1 ring-1 ring-ink-200">
             @endif
 
             <div>
