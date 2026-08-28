@@ -73,10 +73,9 @@
                     @endif
 
                     @if ($supplier->logo_path)
-                        {{-- object-contain: логотип має бути видно цілком, а не обрізаним.
-                             Тло приховує поля, які лишаються навколо. --}}
+                        {{-- object-contain: логотип має бути видно цілком, а не обрізаним. --}}
                         <img src="{{ Storage::disk('public')->url($supplier->logo_path) }}" alt=""
-                             loading="lazy" class="h-40 w-full rounded-xl bg-white/60 object-contain p-3">
+                             loading="lazy" class="h-40 w-full rounded-xl object-contain">
                     @else
                         <div class="flex h-40 items-center justify-center rounded-xl"
                              style="background: repeating-linear-gradient(135deg, {{ $p['photo'] }}, {{ $p['photo'] }} 9px, transparent 9px, transparent 18px)">
