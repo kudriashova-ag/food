@@ -12,6 +12,7 @@ use App\Models\MenuSection;
 use App\Models\NonWorkingDay;
 use App\Models\OrderLine;
 use App\Models\Student;
+use App\Models\Supplier;
 use App\Services\Deadlines\DeadlineService;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -318,6 +319,42 @@ class CartService
     public function count(?Cart $cart): int
     {
         return $cart === null ? 0 : (int) $cart->items()->sum('quantity');
+    }
+
+    /**
+     * Дати цього постачальника, які вже лежать у кошику: меню показує їх
+     * як додані й не дає покласти той самий день удруге.
+     *
+     * @return array<int, string>
+     */
+    public function datesInCartFor(Supplier $supplier): array
+    {
+        $cart = $this->currentIfExists();
+
+        if ($cart === null) {
+            return [];
+        }
+
+        return $cart->items()
+            ->where('supplier_id', $supplier->id)
+            ->pluck('service_date')
+            ->map(fn ($date): string => CarbonImmutable::parse($date)->toDateString())
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /** Чи лежить цей день постачальника вже в кошику. */
+    public function hasDay(?Cart $cart, int $supplierId, CarbonInterface|string $date): bool
+    {
+        if ($cart === null) {
+            return false;
+        }
+
+        return $cart->items()
+            ->where('supplier_id', $supplierId)
+            ->whereDate('service_date', CarbonImmutable::parse($date)->toDateString())
+            ->exists();
     }
 
     /** Позиції, за якими дедлайн минув, поки кошик лежав незавершеним. */

@@ -44,6 +44,26 @@ function refreshCart({ count, total }) {
     }
 }
 
+/** Доданий день згортається в рядок «уже в кошику» з посиланням на кошик. */
+function markAsAdded(form) {
+    const day = form.closest('details');
+
+    form.querySelector('[data-day-pending]')?.setAttribute('hidden', '');
+    form.querySelector('[data-day-added]')?.removeAttribute('hidden');
+    form.querySelector('[data-day-fields]')?.setAttribute('disabled', '');
+
+    if (day?.querySelector('[data-day-badge]') == null) {
+        day?.querySelector('summary span')?.insertAdjacentHTML(
+            'beforeend',
+            `<span class="badge inline-flex items-center gap-1 bg-deep-700 text-white" data-day-badge>
+                <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                у кошику
+            </span>`,
+        );
+    }
+}
+
 async function submit(form) {
     const button = form.querySelector('button[type="submit"]');
 
@@ -70,6 +90,10 @@ async function submit(form) {
         const data = await response.json();
 
         toast(data.message, data.ok ? 'success' : 'error');
+
+        if (data.ok) {
+            markAsAdded(form);
+        }
 
         if (data.cart) {
             refreshCart(data.cart);

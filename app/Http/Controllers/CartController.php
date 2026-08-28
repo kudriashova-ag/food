@@ -44,6 +44,16 @@ class CartController extends Controller
             ->with('sections')
             ->firstOrFail();
 
+        // Той самий день двічі не додається: інакше кількості просто складалися б,
+        // і людина не бачила б, звідки взялися зайві порції. Правити вже додане
+        // потрібно в кошику.
+        if ($this->cart->hasDay($cart, $supplier->id, $menuDay->date)) {
+            return $this->dayResponse(
+                $request,
+                error: "Цей день уже в кошику: {$menuDay->date->translatedFormat('d.m.Y')}. Змініть його склад у кошику.",
+            );
+        }
+
         $quantities = $request->input('qty', []);
         $choices = $request->input('choice', []);
         $choiceQuantities = $request->input('choice_qty', []);

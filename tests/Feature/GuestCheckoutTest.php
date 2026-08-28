@@ -234,6 +234,61 @@ class GuestCheckoutTest extends TestCase
             ->assertSessionHas('status');
     }
 
+    public function test_the_same_day_cannot_be_added_twice(): void
+    {
+        // Друге додавання мовчки складало б кількості — людина не зрозуміла б,
+        // звідки зайві порції. Правити склад дня треба в кошику.
+        $this->addDayToCart();
+
+        $this->postJson(route('cart.store-day', [$this->supplier->slug, self::SERVICE_DATE]), [
+            'qty' => [$this->complex->id => [$this->cutlet->id => 1]],
+        ])
+            ->assertStatus(422)
+            ->assertJson(['ok' => false])
+            ->assertJsonPath('message', fn (string $m): bool => str_contains($m, 'уже в кошику'));
+
+        $this->assertSame(1, CartItem::query()->sole()->quantity);
+    }
+
+    public function test_another_day_is_still_addable(): void
+    {
+        $this->addDayToCart();
+
+        // Наступний понеділок: правило дедлайну в setUp() заведене саме на нього.
+        $section = MenuDay::create([
+            'supplier_id' => $this->supplier->id,
+            'date' => '2026-08-24',
+            'is_working_day' => true,
+            'published_at' => now(),
+        ])->sections()->create([
+            'type' => MenuSectionType::Complex,
+            'title' => 'Комплекс №1',
+            'sort' => 0,
+        ]);
+
+        $section->sectionDishes()->create(['dish_id' => $this->cutlet->id, 'sort' => 0]);
+
+        $this->postJson(route('cart.store-day', [$this->supplier->slug, '2026-08-24']), [
+            'qty' => [$section->id => [$this->cutlet->id => 1]],
+        ])->assertOk();
+
+        $this->assertSame(2, CartItem::query()->count());
+    }
+
+    public function test_menu_shows_which_days_are_already_in_the_cart(): void
+    {
+        $this->get(route('menu', $this->supplier->slug))
+            ->assertOk()
+            ->assertDontSee('у кошику');
+
+        $this->addDayToCart();
+
+        $this->get(route('menu', $this->supplier->slug))
+            ->assertOk()
+            ->assertSee('Цей день уже в кошику')
+            ->assertSee('Змінити в кошику');
+    }
+
     public function test_cart_item_keys_are_integers(): void
     {
         // На хостингу PDO віддавав cart_id рядком, і строге порівняння "1" === 1

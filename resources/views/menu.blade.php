@@ -46,6 +46,10 @@
                 ->sum(fn ($sectionDish) => (float) $sectionDish->dish->price);
 
             $isToday = $day->date->isToday();
+
+            // Уже доданий день не пропонуємо додати вдруге — правити його склад
+            // потрібно в кошику, інакше кількості мовчки складалися б.
+            $inCart = in_array($day->date->toDateString(), $datesInCart, true);
         @endphp
 
         <details @class([
@@ -72,6 +76,16 @@
                     @if ($isToday)
                         <span class="badge bg-brand-100 text-deep-800">сьогодні</span>
                     @endif
+
+                    @if ($inCart)
+                        <span class="badge inline-flex items-center gap-1 bg-deep-700 text-white" data-day-badge>
+                            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                 stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                            у кошику
+                        </span>
+                    @endif
                 </span>
 
                 @if ($open)
@@ -91,7 +105,9 @@
                   class="border-t border-ink-100" {{ $open ? 'data-day-form' : '' }}>
                 @csrf
 
-                <fieldset @disabled(! $open)>
+                {{-- Доданий день теж блокуємо: міняти вибір тут уже нема куди,
+                     склад правиться в кошику. --}}
+                <fieldset @disabled(! $open || $inCart) data-day-fields>
                     <div class="grid gap-5 px-4 py-4 {{ $extraSections->isNotEmpty() && $mainSections->isNotEmpty() ? 'md:grid-cols-2' : '' }}">
                         @if ($mainSections->isNotEmpty())
                             <div class="space-y-5">
@@ -120,20 +136,45 @@
 
                 @if ($open)
                     <div class="border-t border-ink-100 bg-ink-50/60 px-4 py-4">
-                        <div class="mb-3 flex items-baseline justify-between gap-3">
-                            <span class="text-sm text-ink-500">Разом за день</span>
-                            <span class="text-xl font-bold tabular-nums" data-day-total>
-                                {{ number_format($defaultTotal, 2, ',', ' ') }} грн
-                            </span>
+                        {{-- Доданий день показує посилання на кошик замість кнопки:
+                             склад правиться там. JS перемикає ці блоки після додавання. --}}
+                        <div data-day-added @unless ($inCart) hidden @endunless>
+                            <div class="flex flex-wrap items-center justify-between gap-3">
+                                <span class="flex items-center gap-2 text-sm font-medium text-deep-800">
+                                    <svg class="h-5 w-5 shrink-0 text-deep-700" viewBox="0 0 24 24" fill="none"
+                                         stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                         stroke-linejoin="round" aria-hidden="true">
+                                        <circle cx="12" cy="12" r="10"/><path d="M20 6 9 17l-5-5"/>
+                                    </svg>
+                                    Цей день уже в кошику
+                                </span>
+
+                                <a href="{{ route('cart') }}" class="btn-accent">
+                                    Змінити в кошику
+                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="m9 18 6-6-6-6"/>
+                                    </svg>
+                                </a>
+                            </div>
                         </div>
 
-                        <button type="submit" class="btn-primary w-full">
-                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d="M5 12h14M12 5v14"/>
-                            </svg>
-                            Додати цей день у кошик
-                        </button>
+                        <div data-day-pending @if ($inCart) hidden @endif>
+                            <div class="mb-3 flex items-baseline justify-between gap-3">
+                                <span class="text-sm text-ink-500">Разом за день</span>
+                                <span class="text-xl font-bold tabular-nums" data-day-total>
+                                    {{ number_format($defaultTotal, 2, ',', ' ') }} грн
+                                </span>
+                            </div>
+
+                            <button type="submit" class="btn-primary w-full">
+                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M5 12h14M12 5v14"/>
+                                </svg>
+                                Додати цей день у кошик
+                            </button>
+                        </div>
                     </div>
                 @endif
             </form>

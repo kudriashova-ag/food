@@ -5,13 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\MenuDay;
 use App\Models\Supplier;
 use App\Services\Deadlines\DeadlineService;
+use App\Services\Orders\CartService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class MenuController extends Controller
 {
-    public function __invoke(Request $request, Supplier $supplier, DeadlineService $deadlines): View
+    public function __invoke(Request $request, Supplier $supplier, DeadlineService $deadlines, CartService $cart): View
     {
         abort_unless($supplier->is_visible, 404);
 
@@ -40,6 +41,7 @@ class MenuController extends Controller
             'days' => $days,
             'deadlines' => $range,
             'expandedDate' => $nextOpen?->date->toDateString(),
+            'datesInCart' => $cart->datesInCartFor($supplier),
         ]);
     }
 }
