@@ -208,6 +208,18 @@ class StudentOrderingPagesTest extends TestCase
             ->assertSee('Скасувати день');
     }
 
+    public function test_order_line_keys_are_integers(): void
+    {
+        // На хостингу PDO віддавав ключі рядками, і строге "1" === 1 у перевірці
+        // власності давало 403 на скасуванні власної ж страви.
+        $order = $this->placeOrder();
+        $line = $order->lines()->firstOrFail();
+
+        $this->assertIsInt($line->student_id);
+        $this->assertIsInt($line->order_id);
+        $this->assertIsInt($line->supplier_id);
+    }
+
     public function test_day_without_a_published_menu_reads_as_a_day_off(): void
     {
         // У тижні заповнений лише понеділок — решта днів меню не мають.

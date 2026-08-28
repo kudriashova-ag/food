@@ -41,8 +41,16 @@ class CancellationController extends Controller
         return back()->with('status', "Скасовано позицій: {$count}.");
     }
 
+    /**
+     * Чужу позицію скасувати не можна.
+     *
+     * Порівнюємо через (int): залежно від збірки PDO ключі приходять то числами,
+     * то рядками, і строге "3" === 3 давало 403 на власне ж замовлення.
+     */
     private function authorizeLine(Request $request, OrderLine $line): void
     {
-        abort_unless($line->student_id === $request->user()->student?->id, 403);
+        $studentId = $request->user()->student?->id;
+
+        abort_unless($studentId !== null && (int) $line->student_id === (int) $studentId, 403);
     }
 }

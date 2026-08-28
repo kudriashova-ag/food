@@ -58,7 +58,11 @@ class NotificationSettingsController extends Controller
 
     public function disconnectTelegram(Request $request, TelegramLink $link, TelegramLinkService $links): RedirectResponse
     {
-        abort_unless($link->student_id === $request->user()->student?->id, 403);
+        // Через (int): на деяких збірках PDO ключі приходять рядками,
+        // і строге порівняння відмовляло у власній же прив'язці.
+        $studentId = $request->user()->student?->id;
+
+        abort_unless($studentId !== null && (int) $link->student_id === (int) $studentId, 403);
 
         $links->disconnect($link);
 

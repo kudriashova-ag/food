@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\MenuSectionType;
+use App\Enums\OrderLineStatus;
 use App\Enums\UserRole;
 use App\Models\Cart;
 use App\Models\CartItem;
@@ -301,6 +302,26 @@ class GuestCheckoutTest extends TestCase
             ->assertOk()
             ->assertSee('Цей день уже в кошику')
             ->assertSee('Змінити в кошику');
+    }
+
+    public function test_guest_can_cancel_what_he_ordered_right_after_login(): void
+    {
+        // Повний шлях: зібрав кошик гостем, увійшов, підтвердив, скасував.
+        // Саме на скасуванні впиралося в 403 через строге порівняння ключів.
+        $this->addDayToCart();
+
+        $this->post('/login', ['login' => 'ivanenko.mariia', 'password' => 'secret'])
+            ->assertRedirect(route('cart'));
+
+        $this->post(route('orders.store'))->assertRedirect(route('orders.index'));
+
+        $line = \App\Models\OrderLine::query()->sole();
+
+        $this->delete(route('orders.cancel-line', $line))
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        $this->assertSame(OrderLineStatus::Cancelled, $line->fresh()->status);
     }
 
     public function test_cart_item_keys_are_integers(): void

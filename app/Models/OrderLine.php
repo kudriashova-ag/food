@@ -37,6 +37,12 @@ class OrderLine extends Model
             'section_type' => MenuSectionType::class,
             'status' => OrderLineStatus::class,
             'cancelled_at' => 'datetime',
+            // Ключі кастуємо явно: на деяких збірках PDO вони приходять рядками,
+            // і строге порівняння з id моделі мовчки не спрацьовує.
+            'order_id' => 'integer',
+            'student_id' => 'integer',
+            'supplier_id' => 'integer',
+            'dish_id' => 'integer',
         ];
     }
 

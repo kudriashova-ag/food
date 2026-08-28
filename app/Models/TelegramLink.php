@@ -28,6 +28,9 @@ class TelegramLink extends Model
             'is_active' => 'boolean',
             'linked_at' => 'datetime',
             'deactivated_at' => 'datetime',
+            // Див. коментар в OrderLine: ключі мають бути числами.
+            'student_id' => 'integer',
+            'supplier_id' => 'integer',
         ];
     }
 
