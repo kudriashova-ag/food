@@ -95,6 +95,7 @@ class StudentOrderingPagesTest extends TestCase
         $this->complex = $menuDay->sections()->create([
             'type' => MenuSectionType::Complex,
             'title' => 'Комплекс №1',
+            'price' => 60,
             'sort' => 0,
         ]);
         $this->complex->sectionDishes()->create(['dish_id' => $this->cutlet->id, 'sort' => 0]);
@@ -137,8 +138,8 @@ class StudentOrderingPagesTest extends TestCase
     public function test_whole_day_is_added_to_the_cart_at_once(): void
     {
         $this->post(route('cart.store-day', [$this->supplier->slug, self::SERVICE_DATE]), [
+            'complex_qty' => [$this->complex->id => 1],
             'qty' => [
-                $this->complex->id => [$this->cutlet->id => 1],
                 $this->extras->id => [$this->water->id => 2],
             ],
         ])->assertRedirect();
@@ -152,20 +153,20 @@ class StudentOrderingPagesTest extends TestCase
     public function test_dish_with_zero_quantity_is_not_added(): void
     {
         $this->post(route('cart.store-day', [$this->supplier->slug, self::SERVICE_DATE]), [
+            'complex_qty' => [$this->complex->id => 0],
             'qty' => [
-                $this->complex->id => [$this->cutlet->id => 0],
                 $this->extras->id => [$this->water->id => 1],
             ],
         ])->assertRedirect();
 
         $this->assertCount(1, CartItem::query()->get());
-        $this->assertNull(CartItem::query()->where('dish_id', $this->cutlet->id)->first());
+        $this->assertNull(CartItem::query()->whereNull('dish_id')->first());
     }
 
     public function test_empty_selection_reports_an_error(): void
     {
         $this->post(route('cart.store-day', [$this->supplier->slug, self::SERVICE_DATE]), [
-            'qty' => [$this->complex->id => [$this->cutlet->id => 0]],
+            'complex_qty' => [$this->complex->id => 0],
         ])->assertSessionHas('error');
 
         $this->assertCount(0, CartItem::query()->get());
@@ -174,20 +175,20 @@ class StudentOrderingPagesTest extends TestCase
     public function test_cart_page_groups_by_supplier_and_date(): void
     {
         $this->post(route('cart.store-day', [$this->supplier->slug, self::SERVICE_DATE]), [
-            'qty' => [$this->complex->id => [$this->cutlet->id => 1]],
+            'complex_qty' => [$this->complex->id => 1],
         ]);
 
         $this->get(route('cart'))
             ->assertOk()
             ->assertSee('Смачно')
-            ->assertSee('Куряча котлета')
+            ->assertSee('Комплекс №1')
             ->assertSee('60,00');
     }
 
     public function test_order_is_placed_from_the_cart_page(): void
     {
         $this->post(route('cart.store-day', [$this->supplier->slug, self::SERVICE_DATE]), [
-            'qty' => [$this->complex->id => [$this->cutlet->id => 1]],
+            'complex_qty' => [$this->complex->id => 1],
         ]);
 
         $this->post(route('orders.store'))
@@ -204,7 +205,7 @@ class StudentOrderingPagesTest extends TestCase
 
         $this->get(route('orders.index', ['week' => self::SERVICE_DATE]))
             ->assertOk()
-            ->assertSee('Куряча котлета')
+            ->assertSee('Комплекс №1')
             ->assertSee('Скасувати день');
     }
 
@@ -350,7 +351,7 @@ class StudentOrderingPagesTest extends TestCase
     public function test_student_cannot_touch_another_students_cart_item(): void
     {
         $this->post(route('cart.store-day', [$this->supplier->slug, self::SERVICE_DATE]), [
-            'qty' => [$this->complex->id => [$this->cutlet->id => 1]],
+            'complex_qty' => [$this->complex->id => 1],
         ]);
 
         $item = CartItem::query()->firstOrFail();
@@ -379,7 +380,7 @@ class StudentOrderingPagesTest extends TestCase
     private function placeOrder(): Order
     {
         $this->post(route('cart.store-day', [$this->supplier->slug, self::SERVICE_DATE]), [
-            'qty' => [$this->complex->id => [$this->cutlet->id => 1]],
+            'complex_qty' => [$this->complex->id => 1],
         ]);
 
         $this->post(route('orders.store'));

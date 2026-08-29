@@ -185,6 +185,7 @@ class MenuPageTest extends TestCase
         $complex = $menuDay->sections()->create([
             'type' => MenuSectionType::Complex,
             'title' => 'Комплекс №1',
+            'price' => 60,
             'sort' => 0,
         ]);
 

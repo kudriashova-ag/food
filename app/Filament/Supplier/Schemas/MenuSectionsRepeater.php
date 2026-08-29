@@ -43,7 +43,7 @@ class MenuSectionsRepeater
                     ->helperText(fn (Get $get): string => match ($get('type')) {
                         MenuSectionType::Choice->value => 'Учень обере один варіант або пропустить секцію.',
                         MenuSectionType::Extra->value => 'Учень обирає незалежно й у довільній кількості.',
-                        default => 'За замовчуванням відмічені всі страви, учень може зняти галочку з будь-якої.',
+                        default => 'Учень купує весь комплекс цілком за фіксованою ціною. Склад страв — інформаційний, вибору немає.',
                     }),
 
                 TextInput::make('title')
@@ -55,6 +55,17 @@ class MenuSectionsRepeater
                         MenuSectionType::Extra->value => 'Додатково',
                         default => 'Комплекс №1',
                     }),
+
+                TextInput::make('price')
+                    ->label('Ціна комплексу')
+                    ->numeric()
+                    ->minValue(0.01)
+                    ->step(0.01)
+                    ->suffix('грн')
+                    ->required(fn (Get $get): bool => $get('type') === MenuSectionType::Complex->value)
+                    ->visible(fn (Get $get): bool => $get('type') === MenuSectionType::Complex->value)
+                    ->live(onBlur: true)
+                    ->helperText('Фіксована ціна за весь комплекс. Учень купує комплекс тільки цілком.'),
 
                 Repeater::make('sectionDishes')
                     ->label('Страви')

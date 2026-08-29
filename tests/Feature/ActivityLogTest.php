@@ -84,6 +84,7 @@ class ActivityLogTest extends TestCase
         $this->complex = $menuDay->sections()->create([
             'type' => MenuSectionType::Complex,
             'title' => 'Комплекс №1',
+            'price' => 60,
             'sort' => 0,
         ]);
         $this->complex->sectionDishes()->create(['dish_id' => $this->cutlet->id, 'sort' => 0]);
@@ -105,7 +106,7 @@ class ActivityLogTest extends TestCase
         $activity = Activity::query()->where('event', 'order_placed')->firstOrFail();
 
         $this->assertSame($order->number, $activity->properties['number']);
-        $this->assertSame('Куряча котлета', $activity->properties['lines'][0]['dish']);
+        $this->assertSame('Комплекс №1: Куряча котлета', $activity->properties['lines'][0]['dish']);
         $this->assertSame('60.00', $activity->properties['lines'][0]['price']);
         $this->assertSame($this->user->id, $activity->causer_id);
     }
@@ -194,7 +195,7 @@ class ActivityLogTest extends TestCase
     private function placeOrder(): \App\Models\Order
     {
         $cart = app(CartService::class);
-        $cart->add($cart->for($this->student), $this->complex, $this->cutlet->id);
+        $cart->add($cart->for($this->student), $this->complex, null);
 
         return app(OrderService::class)->placeFromCart($this->student);
     }

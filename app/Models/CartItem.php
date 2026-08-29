@@ -50,9 +50,29 @@ class CartItem extends Model
         return $this->belongsTo(MenuSection::class);
     }
 
-    /** Ціна тягнеться з картки страви й фіксується лише при оформленні. */
+    /** Ціна залежить від типу секції: комплекс = section.price, інші = dish.price * quantity. */
     public function subtotal(): float
     {
+        if ($this->menuSection?->type === \App\Enums\MenuSectionType::Complex) {
+            return (float) $this->menuSection->price * $this->quantity;
+        }
+
         return (float) $this->dish->price * $this->quantity;
+    }
+
+    /** Назва для показу: для комплексу — назва секції, для решти — назва страви. */
+    public function displayName(): string
+    {
+        if ($this->menuSection?->type === \App\Enums\MenuSectionType::Complex) {
+            return $this->menuSection->title;
+        }
+
+        return $this->dish->name ?? 'Страва';
+    }
+
+    /** Ціна страви з урахуванням можливого override (для choice/extra з персоналізованою ціною). */
+    public function effectiveDishPrice(): float
+    {
+        return (float) $this->dish->price;
     }
 }

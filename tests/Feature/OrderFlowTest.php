@@ -109,6 +109,7 @@ class OrderFlowTest extends TestCase
         $this->complex = $menuDay->sections()->create([
             'type' => MenuSectionType::Complex,
             'title' => 'Комплекс №1',
+            'price' => 60,
             'sort' => 0,
         ]);
         $this->complex->sectionDishes()->create(['dish_id' => $this->cutlet->id, 'sort' => 0]);
@@ -135,16 +136,17 @@ class OrderFlowTest extends TestCase
 
     public function test_order_freezes_price_and_dish_name(): void
     {
-        $this->cart->add($this->cartModel, $this->complex, $this->cutlet->id);
+        $this->cart->add($this->cartModel, $this->complex, null);
 
         $order = $this->orders->placeFromCart($this->student);
 
-        // Ціна в меню змінилася вже після оформлення.
+        // Ціна комплексу змінилася вже після оформлення.
+        $this->complex->update(['price' => 90]);
         $this->cutlet->update(['name' => 'Котлета по-новому', 'price' => 80]);
 
         $line = $order->lines()->firstOrFail();
 
-        $this->assertSame('Куряча котлета', $line->dish_name);
+        $this->assertSame('Комплекс №1: Куряча котлета', $line->dish_name);
         $this->assertSame('60.00', $line->unit_price);
         $this->assertSame('60.00', $order->fresh()->total_amount);
     }
@@ -198,7 +200,23 @@ class OrderFlowTest extends TestCase
     {
         $this->expectException(MenuUnavailableException::class);
 
-        $this->cart->add($this->cartModel, $this->complex, $this->water->id);
+        // extras — секція Extra, вода в ній не належить $this->extras чужій секції.
+        $foreignSection = MenuDay::query()->firstOrFail()->sections()->create([
+            'type' => MenuSectionType::Extra,
+            'title' => 'Інша секція',
+            'sort' => 5,
+        ]);
+
+        $this->cart->add($this->cartModel, $foreignSection, $this->water->id);
+    }
+
+    public function test_complex_without_price_is_rejected(): void
+    {
+        $this->complex->update(['price' => null]);
+
+        $this->expectException(MenuUnavailableException::class);
+
+        $this->cart->add($this->cartModel, $this->complex, null);
     }
 
     public function test_unpublished_menu_cannot_be_ordered(): void
@@ -207,12 +225,12 @@ class OrderFlowTest extends TestCase
 
         $this->expectException(MenuUnavailableException::class);
 
-        $this->cart->add($this->cartModel, $this->complex, $this->cutlet->id);
+        $this->cart->add($this->cartModel, $this->complex, null);
     }
 
     public function test_ordering_after_the_deadline_is_rejected(): void
     {
-        $this->cart->add($this->cartModel, $this->complex, $this->cutlet->id);
+        $this->cart->add($this->cartModel, $this->complex, null);
 
         // Дедлайн — неділя 16.08 о 09:00, оформлюємо на годину пізніше.
         CarbonImmutable::setTestNow('2026-08-16 10:00:00');
@@ -231,7 +249,7 @@ class OrderFlowTest extends TestCase
 
     public function test_cart_is_cleared_after_placing_the_order(): void
     {
-        $this->cart->add($this->cartModel, $this->complex, $this->cutlet->id);
+        $this->cart->add($this->cartModel, $this->complex, null);
         $this->orders->placeFromCart($this->student);
 
         $this->assertSame(0, $this->cart->count($this->cartModel));
@@ -239,7 +257,7 @@ class OrderFlowTest extends TestCase
 
     public function test_order_number_is_unique_per_day(): void
     {
-        $this->cart->add($this->cartModel, $this->complex, $this->cutlet->id);
+        $this->cart->add($this->cartModel, $this->complex, null);
         $first = $this->orders->placeFromCart($this->student);
 
         $this->cart->add($this->cartModel, $this->extras, $this->water->id);
@@ -251,15 +269,16 @@ class OrderFlowTest extends TestCase
 
     public function test_cancelling_one_line_keeps_the_rest_active(): void
     {
-        $this->cart->add($this->cartModel, $this->complex, $this->cutlet->id);
+        $this->cart->add($this->cartModel, $this->complex, null);
         $this->cart->add($this->cartModel, $this->extras, $this->water->id, quantity: 2);
 
         $order = $this->orders->placeFromCart($this->student);
-        $cutletLine = $order->lines()->where('dish_id', $this->cutlet->id)->firstOrFail();
+        // Комплекс — рядок з dish_id = null, шукаємо по menu_section_id.
+        $complexLine = $order->lines()->where('menu_section_id', $this->complex->id)->firstOrFail();
 
-        $this->cancellations->cancelLine($cutletLine, $this->user);
+        $this->cancellations->cancelLine($complexLine, $this->user);
 
-        $this->assertSame(OrderLineStatus::Cancelled, $cutletLine->fresh()->status);
+        $this->assertSame(OrderLineStatus::Cancelled, $complexLine->fresh()->status);
         $this->assertSame('30.00', $order->fresh()->total_amount);
         $this->assertCount(1, $order->lines()->active()->get());
     }
@@ -281,7 +300,7 @@ class OrderFlowTest extends TestCase
 
     public function test_cancelling_a_day_removes_every_line_of_that_supplier(): void
     {
-        $this->cart->add($this->cartModel, $this->complex, $this->cutlet->id);
+        $this->cart->add($this->cartModel, $this->complex, null);
         $this->cart->add($this->cartModel, $this->extras, $this->water->id, quantity: 2);
 
         $order = $this->orders->placeFromCart($this->student);
@@ -300,7 +319,7 @@ class OrderFlowTest extends TestCase
 
     public function test_cancelling_after_the_deadline_is_rejected(): void
     {
-        $this->cart->add($this->cartModel, $this->complex, $this->cutlet->id);
+        $this->cart->add($this->cartModel, $this->complex, null);
         $order = $this->orders->placeFromCart($this->student);
 
         CarbonImmutable::setTestNow('2026-08-16 10:00:00');
@@ -312,7 +331,7 @@ class OrderFlowTest extends TestCase
 
     public function test_admin_may_cancel_after_the_deadline_with_a_reason(): void
     {
-        $this->cart->add($this->cartModel, $this->complex, $this->cutlet->id);
+        $this->cart->add($this->cartModel, $this->complex, null);
         $order = $this->orders->placeFromCart($this->student);
 
         CarbonImmutable::setTestNow('2026-08-16 10:00:00');
@@ -337,7 +356,7 @@ class OrderFlowTest extends TestCase
 
     public function test_cancelled_line_is_not_deleted(): void
     {
-        $this->cart->add($this->cartModel, $this->complex, $this->cutlet->id);
+        $this->cart->add($this->cartModel, $this->complex, null);
         $order = $this->orders->placeFromCart($this->student);
 
         $this->cancellations->cancelLine($order->lines()->firstOrFail(), $this->user);

@@ -30,7 +30,7 @@ class OrderService
         $cart = $this->cart->for($student);
 
         $items = $cart->items()
-            ->with(['dish', 'menuSection'])
+            ->with(['dish', 'menuSection', 'menuSection.sectionDishes.dish'])
             ->get();
 
         if ($items->isEmpty()) {
@@ -49,17 +49,29 @@ class OrderService
             ]);
 
             foreach ($items as $item) {
+                $isComplex = $item->menuSection?->type === \App\Enums\MenuSectionType::Complex;
+
+                // Для комплексу: dish_name = складений рядок (назва секції + список страв),
+                // unit_price = ціна секції. Для choice/extra: як звично по dish.price.
+                $dishName = $isComplex
+                    ? $this->formatComplexName($item->menuSection)
+                    : $item->dish->name;
+
+                $unitPrice = $isComplex
+                    ? $item->menuSection->price
+                    : $item->dish->price;
+
                 $order->lines()->create([
                     'student_id' => $student->id,
                     'supplier_id' => $item->supplier_id,
                     'service_date' => $item->service_date,
                     'dish_id' => $item->dish_id,
                     'menu_section_id' => $item->menu_section_id,
-                    'dish_name' => $item->dish->name,
+                    'dish_name' => $dishName,
                     'section_type' => $item->menuSection?->type,
                     'section_title' => $item->menuSection?->title,
                     'quantity' => $item->quantity,
-                    'unit_price' => $item->dish->price,
+                    'unit_price' => $unitPrice,
                 ]);
             }
 
@@ -116,6 +128,17 @@ class OrderService
 
                 $this->deadlines->assertCanOrder($first->supplier_id, $first->service_date);
             });
+    }
+
+    /** Форматування назви комплексу для показу в замовленні: "Комплекс №1: Салат, Пюре, Котлета...". */
+    private function formatComplexName($menuSection): string
+    {
+        $dishNames = $menuSection->sectionDishes
+            ->map(fn ($sd) => $sd->dish?->name)
+            ->filter()
+            ->implode(', ');
+
+        return "{$menuSection->title}: {$dishNames}";
     }
 
     /** ЗМ-20260817-0001 — щоденна нумерація, зрозуміла й людині, і в звіті. */

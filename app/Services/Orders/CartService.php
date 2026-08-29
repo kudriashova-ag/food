@@ -148,16 +148,26 @@ class CartService
     }
 
     /**
-     * Додає страву в кошик. Якщо страва вже там — збільшує кількість.
+     * Додає страву або комплекс у кошик. Для комплексу $dishId має бути null.
      * У групі вибору попередній варіант замінюється: обрати можна тільки один.
      */
-    public function add(Cart $cart, MenuSection $section, int $dishId, int $quantity = 1): CartItem
+    public function add(Cart $cart, MenuSection $section, ?int $dishId = null, int $quantity = 1): CartItem
     {
         $menuDay = $section->menuDay;
 
         $this->assertOrderable($menuDay);
-        $this->assertDishBelongsToSection($section, $dishId);
         $this->deadlines->assertCanOrder($menuDay->supplier_id, $menuDay->date);
+
+        if ($section->type === MenuSectionType::Complex) {
+            return $this->addComplex($cart, $section, $quantity);
+        }
+
+        // Для choice/extra — обов'язковий dishId.
+        if ($dishId === null) {
+            throw MenuUnavailableException::dishNotInMenu('(страва не вказана)', $menuDay->date);
+        }
+
+        $this->assertDishBelongsToSection($section, $dishId);
 
         if ($section->type === MenuSectionType::Choice) {
             $cart->items()
@@ -181,6 +191,33 @@ class CartService
             'supplier_id' => $menuDay->supplier_id,
             'service_date' => $menuDay->date,
             'dish_id' => $dishId,
+            'menu_section_id' => $section->id,
+            'quantity' => $quantity,
+        ]);
+    }
+
+    /** Додає комплекс цілком у кошик як одну позицію. */
+    private function addComplex(Cart $cart, MenuSection $section, int $quantity): CartItem
+    {
+        if ($section->price === null || $section->price <= 0) {
+            throw MenuUnavailableException::dishNotInMenu($section->title, $section->menuDay->date);
+        }
+
+        $item = $cart->items()
+            ->whereNull('dish_id')
+            ->where('menu_section_id', $section->id)
+            ->first();
+
+        if ($item !== null) {
+            $item->increment('quantity', $quantity);
+
+            return $item->refresh();
+        }
+
+        return $cart->items()->create([
+            'supplier_id' => $section->menuDay->supplier_id,
+            'service_date' => $section->menuDay->date,
+            'dish_id' => null,
             'menu_section_id' => $section->id,
             'quantity' => $quantity,
         ]);
@@ -233,7 +270,8 @@ class CartService
     }
 
     /**
-     * @return array{section: MenuSection, dish_id: int}|null
+     * @return array{section: MenuSection, dish_id: ?int}|null
+     * Для комплексу dish_id = null, для choice/extra — конкретна страва за назвою.
      */
     private function findSectionFor(OrderLine $line, CarbonImmutable $date): ?array
     {
@@ -248,6 +286,18 @@ class CartService
             return null;
         }
 
+        // Якщо це комплекс (dish_id === null в order_line), шукаємо секцію за type + title.
+        if ($line->dish_id === null && $line->section_type === MenuSectionType::Complex) {
+            foreach ($menuDay->sections as $section) {
+                if ($section->type === MenuSectionType::Complex && $section->title === $line->section_title) {
+                    return ['section' => $section, 'dish_id' => null];
+                }
+            }
+
+            return null;
+        }
+
+        // Для choice/extra — звичайний пошук по dish_name.
         foreach ($menuDay->sections as $section) {
             foreach ($section->sectionDishes as $sectionDish) {
                 if ($sectionDish->dish?->name === $line->dish_name) {
@@ -287,7 +337,7 @@ class CartService
      */
     public function grouped(?Cart $cart): Collection
     {
-        $items = $this->items($cart, ['dish', 'supplier', 'menuSection'])
+        $items = $this->items($cart, ['dish', 'supplier', 'menuSection', 'menuSection.sectionDishes.dish'])
             ->sortBy(['supplier_id', 'service_date']);
 
         return $items
@@ -313,7 +363,7 @@ class CartService
 
     public function total(?Cart $cart): float
     {
-        return $this->items($cart, ['dish'])->sum(fn (CartItem $item): float => $item->subtotal());
+        return $this->items($cart, ['dish', 'menuSection'])->sum(fn (CartItem $item): float => $item->subtotal());
     }
 
     public function count(?Cart $cart): int

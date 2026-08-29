@@ -100,6 +100,7 @@ class GuestCheckoutTest extends TestCase
         $this->complex = $menuDay->sections()->create([
             'type' => MenuSectionType::Complex,
             'title' => 'Комплекс №1',
+            'price' => 60,
             'sort' => 0,
         ]);
         $this->complex->sectionDishes()->create(['dish_id' => $this->cutlet->id, 'sort' => 0]);
@@ -132,7 +133,7 @@ class GuestCheckoutTest extends TestCase
 
         $this->get(route('cart'))
             ->assertOk()
-            ->assertSee('Куряча котлета')
+            ->assertSee('Комплекс №1')
             ->assertSee('Увійти й оформити замовлення')
             ->assertDontSee('Підтвердити замовлення');
 
@@ -228,7 +229,7 @@ class GuestCheckoutTest extends TestCase
         // кошика, щоб оновити шапку й нижню панель на місці.
         $response = $this->postJson(
             route('cart.store-day', [$this->supplier->slug, self::SERVICE_DATE]),
-            ['qty' => [$this->complex->id => [$this->cutlet->id => 2]]],
+            ['complex_qty' => [$this->complex->id => 2]],
         );
 
         $response->assertOk()
@@ -253,7 +254,7 @@ class GuestCheckoutTest extends TestCase
     {
         $this->from(route('menu', $this->supplier->slug))
             ->post(route('cart.store-day', [$this->supplier->slug, self::SERVICE_DATE]), [
-                'qty' => [$this->complex->id => [$this->cutlet->id => 1]],
+                'complex_qty' => [$this->complex->id => 1],
             ])
             ->assertRedirect(route('menu', $this->supplier->slug))
             ->assertSessionHas('status');
@@ -266,7 +267,7 @@ class GuestCheckoutTest extends TestCase
         $this->addDayToCart();
 
         $this->postJson(route('cart.store-day', [$this->supplier->slug, self::SERVICE_DATE]), [
-            'qty' => [$this->complex->id => [$this->cutlet->id => 1]],
+            'complex_qty' => [$this->complex->id => 1],
         ])
             ->assertStatus(422)
             ->assertJson(['ok' => false])
@@ -288,13 +289,14 @@ class GuestCheckoutTest extends TestCase
         ])->sections()->create([
             'type' => MenuSectionType::Complex,
             'title' => 'Комплекс №1',
+            'price' => 60,
             'sort' => 0,
         ]);
 
         $section->sectionDishes()->create(['dish_id' => $this->cutlet->id, 'sort' => 0]);
 
         $this->postJson(route('cart.store-day', [$this->supplier->slug, '2026-08-24']), [
-            'qty' => [$section->id => [$this->cutlet->id => 1]],
+            'complex_qty' => [$section->id => 1],
         ])->assertOk();
 
         $this->assertSame(2, CartItem::query()->count());
@@ -340,7 +342,7 @@ class GuestCheckoutTest extends TestCase
         // у перевірці власності кошика давало 403 на власні ж позиції.
         $this->actingAs($this->user)->post(
             route('cart.store-day', [$this->supplier->slug, self::SERVICE_DATE]),
-            ['qty' => [$this->complex->id => [$this->cutlet->id => 1]]],
+            ['qty' => [$this->extras->id => [$this->water->id => 1]]],
         );
 
         $item = CartItem::query()->sole();
@@ -373,7 +375,7 @@ class GuestCheckoutTest extends TestCase
 
         $this->assertSame($this->student->id, $cart->student_id);
         $this->assertCount(2, $items);
-        $this->assertSame(1, $items->firstWhere('dish_id', $this->cutlet->id)->quantity);
+        $this->assertSame(1, $items->firstWhere('menu_section_id', $this->complex->id)->quantity);
         $this->assertSame(1, $items->firstWhere('dish_id', $this->water->id)->quantity);
     }
 
@@ -401,7 +403,7 @@ class GuestCheckoutTest extends TestCase
     {
         $this->actingAs($this->user)->post(
             route('cart.store-day', [$this->supplier->slug, self::SERVICE_DATE]),
-            ['qty' => [$this->complex->id => [$this->cutlet->id => 1]]],
+            ['complex_qty' => [$this->complex->id => 1]],
         );
 
         $item = CartItem::query()->firstOrFail();
@@ -431,7 +433,7 @@ class GuestCheckoutTest extends TestCase
     {
         $this->actingAs($this->user)->post(
             route('cart.store-day', [$this->supplier->slug, self::SERVICE_DATE]),
-            ['qty' => [$this->complex->id => [$this->cutlet->id => 1]]],
+            ['complex_qty' => [$this->complex->id => 1]],
         );
 
         $cart = Cart::query()->sole();
@@ -446,7 +448,7 @@ class GuestCheckoutTest extends TestCase
     private function addDayToCart(): void
     {
         $this->post(route('cart.store-day', [$this->supplier->slug, self::SERVICE_DATE]), [
-            'qty' => [$this->complex->id => [$this->cutlet->id => 1]],
+            'complex_qty' => [$this->complex->id => 1],
         ])->assertRedirect();
     }
 }

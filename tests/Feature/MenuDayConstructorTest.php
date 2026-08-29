@@ -67,6 +67,7 @@ class MenuDayConstructorTest extends TestCase
                     [
                         'type' => MenuSectionType::Complex->value,
                         'title' => 'Комплекс №1',
+                        'price' => 95,
                         'sectionDishes' => [
                             ['dish_id' => $this->cutlet->id],
                             ['dish_id' => $this->puree->id],
@@ -116,6 +117,7 @@ class MenuDayConstructorTest extends TestCase
             $sections[] = [
                 'type' => MenuSectionType::Complex->value,
                 'title' => "Комплекс №{$number}",
+                'price' => 60,
                 'sectionDishes' => [['dish_id' => $this->cutlet->id]],
             ];
         }

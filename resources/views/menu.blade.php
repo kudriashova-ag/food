@@ -21,7 +21,7 @@
 
             <div>
                 <h1 class="text-2xl font-bold tracking-tight">{{ $supplier->name }}</h1>
-                <p class="text-sm text-ink-500">Ціна дня — це сума обраних страв.</p>
+                <p class="text-sm text-ink-500">Комплекс купується цілком за фіксованою ціною. Choice/Extra підсумовуються окремо.</p>
             </div>
         </div>
     </div>
@@ -38,12 +38,11 @@
             $mainSections = $day->sections->where('type', '!==', \App\Enums\MenuSectionType::Extra);
             $extraSections = $day->sections->where('type', \App\Enums\MenuSectionType::Extra);
 
-            // Стартова сума: комплекс приходить із відміченими стравами.
+            // Стартова сума: 1 порція кожного комплексу (за його фіксованою ціною).
             // Далі значення перераховує JS при кожній зміні вибору.
             $defaultTotal = $day->sections
                 ->where('type', \App\Enums\MenuSectionType::Complex)
-                ->flatMap(fn ($section) => $section->sectionDishes)
-                ->sum(fn ($sectionDish) => (float) $sectionDish->dish->price);
+                ->sum(fn ($section) => (float) $section->price);
 
             $isToday = $day->date->isToday();
 

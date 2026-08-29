@@ -16,7 +16,7 @@
             </p>
             <ul class="ml-6 list-disc space-y-0.5">
                 @foreach ($expired as $item)
-                    <li>{{ $item->dish->name }} — {{ $item->service_date->translatedFormat('d.m') }}</li>
+                    <li>{{ $item->displayName() }} — {{ $item->service_date->translatedFormat('d.m') }}</li>
                 @endforeach
             </ul>
             <p class="mt-2">Приберіть ці позиції, щоб оформити решту.</p>
@@ -54,9 +54,13 @@
                         @foreach ($date['items'] as $item)
                             <li class="flex items-center gap-3">
                                 <div class="min-w-0 flex-1">
-                                    <div class="truncate text-sm font-medium">{{ $item->dish->name }}</div>
+                                    <div class="truncate text-sm font-medium">{{ $item->displayName() }}</div>
                                     <div class="text-xs text-ink-500 tabular-nums">
-                                        {{ number_format((float) $item->dish->price, 2, ',', ' ') }} грн
+                                        @if ($item->menuSection?->type === \App\Enums\MenuSectionType::Complex)
+                                            {{ number_format((float) $item->menuSection->price, 2, ',', ' ') }} грн (комплекс)
+                                        @else
+                                            {{ number_format($item->effectiveDishPrice(), 2, ',', ' ') }} грн
+                                        @endif
                                     </div>
                                 </div>
 

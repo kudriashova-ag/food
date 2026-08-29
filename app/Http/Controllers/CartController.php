@@ -57,11 +57,23 @@ class CartController extends Controller
         $quantities = $request->input('qty', []);
         $choices = $request->input('choice', []);
         $choiceQuantities = $request->input('choice_qty', []);
+        $complexQuantities = $request->input('complex_qty', []);
 
         $added = 0;
 
         try {
             foreach ($menuDay->sections as $section) {
+                // Обробка комплексу: окрема гілка.
+                if ($section->type === \App\Enums\MenuSectionType::Complex) {
+                    $qty = (int) ($complexQuantities[$section->id] ?? 0);
+                    if ($qty > 0) {
+                        $this->cart->add($cart, $section, null, $qty);
+                        $added++;
+                    }
+                    continue;
+                }
+
+                // Обробка choice/extra: як раніше.
                 foreach ($quantities[$section->id] ?? [] as $dishId => $quantity) {
                     if ((int) $quantity < 1) {
                         continue;

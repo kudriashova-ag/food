@@ -111,9 +111,19 @@ class RepeatWeekTest extends TestCase
     {
         $this->menuDay(self::SOURCE_MONDAY, $this->cutlet);
 
-        // На цільовому тижні в меню інша страва.
+        // На цільовому тижні немає комплексу взагалі (інша назва секції) — не знайдено.
         $fish = Dish::create(['supplier_id' => $this->supplier->id, 'name' => 'Риба', 'price' => 70]);
-        $this->menuDay(self::TARGET_MONDAY, $fish);
+        $menuDay = MenuDay::query()->firstOrCreate(
+            ['supplier_id' => $this->supplier->id, 'date' => self::TARGET_MONDAY],
+            ['is_working_day' => true, 'published_at' => now()],
+        );
+        $section = $menuDay->sections()->create([
+            'type' => MenuSectionType::Complex,
+            'title' => 'Інший комплекс',
+            'price' => $fish->price,
+            'sort' => 0,
+        ]);
+        $section->sectionDishes()->create(['dish_id' => $fish->id, 'sort' => 0]);
 
         $this->orderOn(self::SOURCE_MONDAY);
 
@@ -121,18 +131,17 @@ class RepeatWeekTest extends TestCase
 
         $this->assertSame(0, $result['added']);
         $this->assertCount(1, $result['unavailable']);
-        $this->assertStringContainsString('Куряча котлета', $result['unavailable'][0]);
     }
 
-    public function test_dish_is_matched_by_name_not_by_id(): void
+    public function test_complex_is_matched_by_section_title_not_by_dish(): void
     {
         $this->menuDay(self::SOURCE_MONDAY, $this->cutlet);
         $this->orderOn(self::SOURCE_MONDAY);
 
-        // Постачальник перестворив страву: назва та сама, id інший.
+        // Постачальник перестворив страву в комплексі: назва секції та сама, страва інша.
         $recreated = Dish::create([
             'supplier_id' => $this->supplier->id,
-            'name' => 'Куряча котлета',
+            'name' => 'Котлета по-новому',
             'price' => 65,
         ]);
         $this->menuDay(self::TARGET_MONDAY, $recreated);
@@ -140,7 +149,7 @@ class RepeatWeekTest extends TestCase
         $result = app(CartService::class)->repeatWeek($this->student, self::SOURCE_MONDAY, self::TARGET_MONDAY);
 
         $this->assertSame(1, $result['added']);
-        $this->assertSame($recreated->id, CartItem::query()->firstOrFail()->dish_id);
+        $this->assertNull(CartItem::query()->firstOrFail()->dish_id);
     }
 
     public function test_weekday_is_preserved(): void
@@ -193,7 +202,7 @@ class RepeatWeekTest extends TestCase
 
         $section = $menuDay->sections()->firstOrCreate(
             ['title' => 'Комплекс №1'],
-            ['type' => MenuSectionType::Complex, 'sort' => 0],
+            ['type' => MenuSectionType::Complex, 'price' => $dish->price, 'sort' => 0],
         );
 
         $section->sectionDishes()->firstOrCreate(['dish_id' => $dish->id], ['sort' => 0]);
@@ -210,10 +219,9 @@ class RepeatWeekTest extends TestCase
             ->sections()
             ->firstOrFail();
 
-        $dishId = $section->sectionDishes()->firstOrFail()->dish_id;
-
         $cart = app(CartService::class);
-        $cart->add($cart->for($this->student), $section, $dishId, $quantity);
+        // Комплекс купується цілком, без dishId.
+        $cart->add($cart->for($this->student), $section, null, $quantity);
 
         return app(OrderService::class)->placeFromCart($this->student);
     }

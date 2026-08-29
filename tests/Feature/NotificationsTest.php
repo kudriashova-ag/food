@@ -90,6 +90,7 @@ class NotificationsTest extends TestCase
         $this->complex = $menuDay->sections()->create([
             'type' => MenuSectionType::Complex,
             'title' => 'Комплекс №1',
+            'price' => 60,
             'sort' => 0,
         ]);
         $this->complex->sectionDishes()->create(['dish_id' => $this->cutlet->id, 'sort' => 0]);
@@ -149,7 +150,7 @@ class NotificationsTest extends TestCase
         $extras->sectionDishes()->create(['dish_id' => $water->id, 'sort' => 0]);
 
         $cart = app(CartService::class);
-        $cart->add($cart->for($this->student), $this->complex, $this->cutlet->id);
+        $cart->add($cart->for($this->student), $this->complex, null);
         $cart->add($cart->for($this->student), $extras, $water->id, 2);
         app(OrderService::class)->placeFromCart($this->student);
 
@@ -269,7 +270,7 @@ class NotificationsTest extends TestCase
     private function placeOrder(): \App\Models\Order
     {
         $cart = app(CartService::class);
-        $cart->add($cart->for($this->student), $this->complex, $this->cutlet->id);
+        $cart->add($cart->for($this->student), $this->complex, null);
 
         return app(OrderService::class)->placeFromCart($this->student);
     }

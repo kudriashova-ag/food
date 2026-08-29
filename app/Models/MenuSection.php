@@ -14,6 +14,7 @@ class MenuSection extends Model
         'menu_day_id',
         'type',
         'title',
+        'price',
         'sort',
     ];
 
@@ -21,7 +22,13 @@ class MenuSection extends Model
     {
         return [
             'type' => MenuSectionType::class,
+            'price' => 'decimal:2',
         ];
+    }
+
+    public function isComplex(): bool
+    {
+        return $this->type === MenuSectionType::Complex;
     }
 
     public function menuDay(): BelongsTo

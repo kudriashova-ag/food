@@ -67,7 +67,7 @@ class MenuDayForm
                     ]),
 
                 Section::make('Секції меню')
-                    ->description('Ціна дня — це сума обраних учнем страв. Комплекс лише групує страви, власної ціни він не має.')
+                    ->description('Комплекс купується цілком за фіксованою ціною. Choice/Extra підсумовуються окремо, як і раніше.')
                     ->visible(fn (Get $get): bool => (bool) $get('is_working_day'))
                     ->schema([
                         MenuSectionsRepeater::make(),

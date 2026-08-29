@@ -20,7 +20,14 @@ function portions(form, sectionId) {
 function dayTotal(form) {
     let total = 0;
 
-    form.querySelectorAll('[data-price]').forEach((field) => {
+    // Комплекси (data-complex): фіксована ціна за весь набір.
+    form.querySelectorAll('[data-complex]').forEach((field) => {
+        const price = Number.parseFloat(field.dataset.price) || 0;
+        total += price * (Number.parseInt(field.value, 10) || 0);
+    });
+
+    // Choice/Extra (data-price, але не data-complex): ціна за штуку.
+    form.querySelectorAll('[data-price]:not([data-complex])').forEach((field) => {
         const price = Number.parseFloat(field.dataset.price) || 0;
 
         if (field.type === 'radio') {

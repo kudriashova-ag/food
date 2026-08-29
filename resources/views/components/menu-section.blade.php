@@ -22,7 +22,38 @@
         @endif
     </div>
 
-    @if ($isChoice)
+    @if ($type === \App\Enums\MenuSectionType::Complex)
+        {{-- Комплекс: інформаційний список страв + єдиний select на весь набір. --}}
+        <div class="rounded-xl border border-ink-200 bg-white p-4">
+            <ul class="mb-3 space-y-1 text-sm text-ink-600">
+                @foreach ($section->sectionDishes as $sectionDish)
+                    <li class="flex items-center gap-2">
+                        <span class="text-ink-400">•</span>
+                        {{ $sectionDish->dish->name }}
+                    </li>
+                @endforeach
+            </ul>
+
+            <div class="flex items-center justify-between gap-3 border-t border-ink-100 pt-3">
+                <span class="font-semibold text-deep-700 tabular-nums">
+                    {{ number_format((float) $section->price, 2, ',', ' ') }} грн
+                </span>
+
+                <div class="flex items-center gap-2 text-sm text-ink-500">
+                    <span>Порцій</span>
+                    <select name="complex_qty[{{ $section->id }}]" data-price="{{ $section->price }}"
+                            data-complex="{{ $section->id }}"
+                            class="w-16 rounded-lg border border-ink-300 bg-white px-2 py-1.5 text-center text-sm font-semibold
+                                   focus:border-deep-500 focus:outline-none focus:ring-2 focus:ring-deep-100">
+                        @for ($n = 0; $n <= 5; $n++)
+                            <option value="{{ $n }}" @selected($n === 1)>{{ $n === 0 ? '—' : $n }}</option>
+                        @endfor
+                    </select>
+                </div>
+            </div>
+        </div>
+    @elseif ($isChoice)
+        {{-- Вибір однієї страви з переліку. Можна замовити окремо від комплексу. --}}
         <div class="space-y-2">
             @foreach ($section->sectionDishes as $sectionDish)
                 <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-ink-200 bg-white p-3
@@ -42,6 +73,10 @@
                 Не потрібно
             </label>
 
+            <div class="flex items-center gap-2 px-3 text-xs text-ink-400">
+                <span>💡 Можна замовити тільки цю страву, без комплексу</span>
+            </div>
+
             <div class="flex items-center gap-2 px-3 text-sm text-ink-500">
                 <span>Порцій</span>
                 <select name="choice_qty[{{ $section->id }}]" data-choice-qty="{{ $section->id }}"
@@ -54,13 +89,9 @@
             </div>
         </div>
     @else
+        {{-- Extra: незалежні додаткові страви. --}}
         <div class="space-y-2">
             @foreach ($section->sectionDishes as $sectionDish)
-                @php
-                    // Комплекс приходить із відміченими стравами, зняти галочку можна з будь-якої.
-                    $default = $type === \App\Enums\MenuSectionType::Complex ? 1 : 0;
-                @endphp
-
                 <div class="flex items-center gap-3 rounded-xl border border-ink-200 bg-white p-3 transition
                             focus-within:border-deep-500 hover:border-ink-300">
                     <x-dish-row :dish="$sectionDish->dish" />
@@ -70,7 +101,7 @@
                             class="w-16 shrink-0 rounded-lg border border-ink-300 bg-white px-2 py-2 text-center text-sm font-semibold
                                    focus:border-deep-500 focus:outline-none focus:ring-2 focus:ring-deep-100">
                         @for ($n = 0; $n <= 5; $n++)
-                            <option value="{{ $n }}" @selected($n === $default)>
+                            <option value="{{ $n }}" @selected($n === 0)>
                                 {{ $n === 0 ? '—' : $n }}
                             </option>
                         @endfor
