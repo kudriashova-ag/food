@@ -85,7 +85,7 @@ class MenuPageTest extends TestCase
     {
         $card = $this->dayCard('середа, 12.08');
 
-        $this->assertStringContainsString('Основні страви', $card);
+        $this->assertStringContainsString('Комплекс', $card);
         $this->assertStringContainsString('Додатково', $card);
         // Кожна страва показується рівно в одному клікабельному зображенні:
         // комплексна страва в основних, напій — у додаткових.

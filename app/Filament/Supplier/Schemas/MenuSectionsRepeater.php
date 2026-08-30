@@ -48,13 +48,14 @@ class MenuSectionsRepeater
 
                 TextInput::make('title')
                     ->label('Назва секції')
-                    ->required()
                     ->maxLength(255)
-                    ->placeholder(fn (Get $get): string => match ($get('type')) {
-                        MenuSectionType::Choice->value => 'Перша страва',
-                        MenuSectionType::Extra->value => 'Додатково',
-                        default => 'Комплекс №1',
-                    }),
+                    ->placeholder(fn (Get $get): string => static::defaultTitleFor($get('type')))
+                    ->helperText('Не заповните — підставимо назву за типом секції.')
+                    // Порожнє поле неприпустиме в БД (NOT NULL) — підставляємо
+                    // ту саму назву, що й у placeholder, тільки-но форма зберігається.
+                    ->dehydrateStateUsing(fn (Get $get, ?string $state): string => filled($state)
+                        ? $state
+                        : static::defaultTitleFor($get('type'))),
 
                 TextInput::make('price')
                     ->label('Ціна комплексу')
@@ -85,6 +86,16 @@ class MenuSectionsRepeater
                             ->disableOptionsWhenSelectedInSiblingRepeaterItems(),
                     ]),
             ]);
+    }
+
+    /** Назва секції за замовчуванням, коли постачальник лишив поле порожнім. */
+    private static function defaultTitleFor(?string $type): string
+    {
+        return match ($type) {
+            MenuSectionType::Choice->value => 'Перша страва',
+            MenuSectionType::Extra->value => 'Додатково',
+            default => 'Комплекс №1',
+        };
     }
 
     /** @return array<int, string> */

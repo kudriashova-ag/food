@@ -21,7 +21,7 @@
 
             <div>
                 <h1 class="text-2xl font-bold tracking-tight">{{ $supplier->name }}</h1>
-                <p class="text-sm text-ink-500">Комплекс купується цілком за фіксованою ціною. Choice/Extra підсумовуються окремо.</p>
+                <p class="text-sm text-ink-500">Комплекс купується цілком за фіксованою ціною. Все інше підсумовуються окремо.</p>
             </div>
         </div>
     </div>

@@ -94,6 +94,35 @@ class MenuDayConstructorTest extends TestCase
         );
     }
 
+    public function test_blank_section_title_gets_a_default_by_type(): void
+    {
+        Livewire::test(CreateMenuDay::class)
+            ->fillForm([
+                'date' => '2026-08-17',
+                'is_working_day' => true,
+                'sections' => [
+                    [
+                        'type' => MenuSectionType::Complex->value,
+                        'title' => '',
+                        'price' => 95,
+                        'sectionDishes' => [['dish_id' => $this->cutlet->id]],
+                    ],
+                    [
+                        'type' => MenuSectionType::Choice->value,
+                        'title' => '',
+                        'sectionDishes' => [['dish_id' => $this->puree->id]],
+                    ],
+                ],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $sections = MenuDay::query()->firstOrFail()->sections;
+
+        $this->assertSame('Комплекс №1', $sections->firstWhere('type', MenuSectionType::Complex)->title);
+        $this->assertSame('Перша страва', $sections->firstWhere('type', MenuSectionType::Choice)->title);
+    }
+
     public function test_draft_menu_day_has_no_publication_timestamp(): void
     {
         Livewire::test(CreateMenuDay::class)
