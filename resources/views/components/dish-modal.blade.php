@@ -3,7 +3,7 @@
     натиснутого зображення, щоб не рендерити по діалогу на кожну страву.
 --}}
 <dialog data-dish-modal
-        class="w-full max-w-md rounded-2xl border-0 p-0 shadow-xl backdrop:bg-ink-900/50">
+        class="fixed inset-0 m-auto h-fit max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border-0 p-0 shadow-xl backdrop:bg-ink-900/50">
     <div class="relative">
         <button type="button" data-dish-modal-close
                 class="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-ink-500
