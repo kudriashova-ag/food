@@ -3,36 +3,29 @@
 @php
     $type = $section->type;
     $isChoice = $type === \App\Enums\MenuSectionType::Choice;
-
-    // Колір мітки підказує роль секції, не змушуючи читати підпис.
-    $badge = match ($type) {
-        \App\Enums\MenuSectionType::Complex => 'bg-brand-50 text-deep-700',
-        \App\Enums\MenuSectionType::Choice => 'bg-sky-50 text-sky-700',
-        default => 'bg-ink-100 text-ink-600',
-    };
 @endphp
 
 <div>
-    <div class="mb-3 flex flex-wrap items-center gap-2">
-        <h3 class="font-semibold">{{ $section->title }}</h3>
-        <span class="badge {{ $badge }}">{{ $type->label() }}</span>
-
-        @if ($isChoice)
+    @if ($isChoice)
+        <div class="mb-3">
             <span class="text-xs text-ink-400">оберіть один варіант</span>
-        @endif
-    </div>
+        </div>
+    @endif
 
     @if ($type === \App\Enums\MenuSectionType::Complex)
-        {{-- Комплекс: інформаційний список страв + єдиний select на весь набір. --}}
+        {{-- Комплекс: фото + вага страв в один рядок, вибору немає — лише кількість порцій набору. --}}
         <div class="rounded-xl border border-ink-200 bg-white p-4">
-            <ul class="mb-3 space-y-1 text-sm text-ink-600">
+            <div class="mb-3 flex flex-wrap gap-3">
                 @foreach ($section->sectionDishes as $sectionDish)
-                    <li class="flex items-center gap-2">
-                        <span class="text-ink-400">•</span>
-                        {{ $sectionDish->dish->name }}
-                    </li>
+                    <div class="flex items-center gap-2">
+                        <x-dish-thumb :dish="$sectionDish->dish" size="sm" />
+
+                        @if ($sectionDish->dish->portion)
+                            <span class="text-xs text-ink-500">{{ $sectionDish->dish->portion }}</span>
+                        @endif
+                    </div>
                 @endforeach
-            </ul>
+            </div>
 
             <div class="flex items-center justify-between gap-3 border-t border-ink-100 pt-3">
                 <span class="font-semibold text-deep-700 tabular-nums">

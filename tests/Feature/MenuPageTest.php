@@ -87,9 +87,10 @@ class MenuPageTest extends TestCase
 
         $this->assertStringContainsString('Основні страви', $card);
         $this->assertStringContainsString('Додатково', $card);
-        // Кожна секція показується рівно в одній колонці.
-        $this->assertSame(1, substr_count($card, 'Комплекс №1'));
-        $this->assertSame(1, substr_count($card, 'Напої'));
+        // Кожна страва показується рівно в одному клікабельному зображенні:
+        // комплексна страва в основних, напій — у додаткових.
+        $this->assertSame(1, substr_count($card, 'data-dish-name="Куряча котлета '.self::NEXT_OPEN_DATE.'"'));
+        $this->assertSame(1, substr_count($card, 'data-dish-name="Вода '.self::NEXT_OPEN_DATE.'"'));
 
         // Дві колонки на широкому екрані, права — з власною прокруткою.
         $this->assertStringContainsString('md:grid-cols-2', $card);

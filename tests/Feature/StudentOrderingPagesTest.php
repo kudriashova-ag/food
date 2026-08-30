@@ -119,10 +119,12 @@ class StudentOrderingPagesTest extends TestCase
 
     public function test_menu_page_shows_dishes_and_deadline(): void
     {
+        // Назва секції ("Комплекс №1") у списку більше не показується —
+        // лише фото, вага й ціна набору; назва страви лишається в data-атрибуті
+        // для модалки.
         $this->get(route('menu', $this->supplier->slug))
             ->assertOk()
             ->assertSee('Куряча котлета')
-            ->assertSee('Комплекс №1')
             ->assertSee('Замовити можна до');
     }
 

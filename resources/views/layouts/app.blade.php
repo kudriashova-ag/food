@@ -243,5 +243,7 @@
     </footer>
 
     @yield('sticky-bar')
+
+    <x-dish-modal />
 </body>
 </html>
