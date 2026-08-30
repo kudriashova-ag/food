@@ -110,7 +110,7 @@
                     <div class="grid gap-5 px-4 py-4 {{ $extraSections->isNotEmpty() && $mainSections->isNotEmpty() ? 'md:grid-cols-2' : '' }}">
                         @if ($mainSections->isNotEmpty())
                             <div class="space-y-5">
-                                <div class="text-xs font-semibold uppercase tracking-wider text-ink-400">Основні страви</div>
+                                <div class="text-xs font-semibold uppercase tracking-wider text-deep-700">Комплекс</div>
 
                                 @foreach ($mainSections as $section)
                                     <x-menu-section :section="$section" />

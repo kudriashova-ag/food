@@ -8,7 +8,7 @@
 <div>
     @if ($isChoice)
         <div class="mb-3">
-            <span class="text-xs text-ink-400">оберіть один варіант</span>
+            <span class="text-xs font-semibold uppercase tracking-wider text-deep-700">Перші страви</span>
         </div>
     @endif
 
