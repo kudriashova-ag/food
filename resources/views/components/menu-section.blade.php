@@ -13,16 +13,21 @@
     @endif
 
     @if ($type === \App\Enums\MenuSectionType::Complex)
-        {{-- Комплекс: фото + вага страв в один рядок, вибору немає — лише кількість порцій набору. --}}
+        {{-- Комплекс: фото, назва й вага кожної страви в сітці по 4 в ряд,
+             вибору немає — лише кількість порцій набору. --}}
         <div class="rounded-xl border border-ink-200 bg-white p-4">
-            <div class="mb-3 flex flex-wrap gap-3">
+            <div class="mb-3 grid grid-cols-4 gap-3">
                 @foreach ($section->sectionDishes as $sectionDish)
-                    <div class="flex items-center gap-2">
-                        <x-dish-thumb :dish="$sectionDish->dish" size="sm" />
+                    <div class="flex flex-col items-center gap-1.5 text-center">
+                        <x-dish-thumb :dish="$sectionDish->dish" size="grid" />
 
-                        @if ($sectionDish->dish->portion)
-                            <span class="text-xs text-ink-500">{{ $sectionDish->dish->portion }}</span>
-                        @endif
+                        <div class="min-w-0 leading-tight">
+                            <div class="truncate text-xs font-medium text-ink-700">{{ $sectionDish->dish->name }}</div>
+
+                            @if ($sectionDish->dish->portion)
+                                <div class="text-xs text-ink-400">{{ $sectionDish->dish->portion }}</div>
+                            @endif
+                        </div>
                     </div>
                 @endforeach
             </div>

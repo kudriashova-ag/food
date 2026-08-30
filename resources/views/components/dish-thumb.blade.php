@@ -7,10 +7,15 @@
 
     $allergenNames = $dish->allergens->pluck('name')->implode('|');
 
-    // 'sm' — компактний ряд у комплексі, 'md' — звичайна картка страви.
-    $sizeClasses = $size === 'sm'
-        ? 'h-12 w-12'
-        : 'h-16 w-16 sm:h-20 sm:w-20';
+    // 'sm' — компактний ряд, 'md' — звичайна картка страви,
+    // 'grid' — на всю ширину колонки сітки (квадрат), для комплексу.
+    $sizeClasses = match ($size) {
+        'sm' => 'h-12 w-12',
+        'grid' => 'aspect-square w-full',
+        default => 'h-16 w-16 sm:h-20 sm:w-20',
+    };
+
+    $wrapperClasses = $size === 'grid' ? 'w-full' : 'shrink-0';
 @endphp
 
 <button type="button" data-dish-trigger
@@ -19,7 +24,7 @@
         data-dish-description="{{ $dish->description }}"
         data-dish-allergens="{{ $allergenNames }}"
         title="{{ $dish->name }}"
-        {{ $attributes->class(['shrink-0 rounded-xl ring-1 ring-ink-200 transition hover:ring-deep-500']) }}>
+        {{ $attributes->class([$wrapperClasses, 'rounded-xl ring-1 ring-ink-200 transition hover:ring-deep-500']) }}>
     @if ($imageUrl)
         <img src="{{ $imageUrl }}" alt="{{ $dish->name }}" loading="lazy"
              class="{{ $sizeClasses }} rounded-xl object-cover">
