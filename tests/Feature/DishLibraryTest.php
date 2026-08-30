@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Enums\MenuSectionType;
 use App\Enums\UserRole;
 use App\Filament\Supplier\Resources\Dishes\Pages\CreateDish;
 use App\Filament\Supplier\Resources\Dishes\Pages\ListDishes;
 use App\Models\Dish;
+use App\Models\MenuDay;
 use App\Models\Supplier;
 use App\Models\User;
 use Filament\Facades\Filament;
@@ -118,5 +120,89 @@ class DishLibraryTest extends TestCase
             ])
             ->call('create')
             ->assertHasFormErrors(['photos']);
+    }
+
+    public function test_unused_dish_is_deleted_by_the_bulk_action(): void
+    {
+        $dish = Dish::create([
+            'supplier_id' => $this->supplier->id,
+            'name' => 'Вода 0,5 л',
+            'price' => 15,
+        ]);
+
+        Livewire::test(ListDishes::class)
+            ->callTableBulkAction('deleteOrArchive', [$dish->id]);
+
+        $this->assertNull(Dish::find($dish->id));
+    }
+
+    /**
+     * FK на dish_id у menu_section_dishes є restrictOnDelete — фізичне
+     * видалення такої страви MySQL відхилить. Замість помилки "не видаляється"
+     * страва має архівуватися.
+     */
+    public function test_dish_used_in_a_menu_is_archived_instead_of_deleted(): void
+    {
+        $dish = Dish::create([
+            'supplier_id' => $this->supplier->id,
+            'name' => 'Куряча котлета',
+            'price' => 60,
+        ]);
+
+        $menuDay = MenuDay::create([
+            'supplier_id' => $this->supplier->id,
+            'date' => '2026-09-01',
+            'is_working_day' => true,
+        ]);
+
+        $section = $menuDay->sections()->create([
+            'type' => MenuSectionType::Complex,
+            'title' => 'Комплекс №1',
+            'price' => 60,
+            'sort' => 0,
+        ]);
+
+        $section->sectionDishes()->create(['dish_id' => $dish->id, 'sort' => 0]);
+
+        Livewire::test(ListDishes::class)
+            ->callTableBulkAction('deleteOrArchive', [$dish->id]);
+
+        $dish->refresh();
+
+        $this->assertNotNull($dish);
+        $this->assertTrue($dish->is_archived);
+    }
+
+    public function test_is_in_use_reports_all_the_places_a_dish_can_be_referenced(): void
+    {
+        $free = Dish::create([
+            'supplier_id' => $this->supplier->id,
+            'name' => 'Вільна страва',
+            'price' => 20,
+        ]);
+
+        $this->assertFalse($free->isInUse());
+
+        $used = Dish::create([
+            'supplier_id' => $this->supplier->id,
+            'name' => 'Зайнята страва',
+            'price' => 30,
+        ]);
+
+        $menuDay = MenuDay::create([
+            'supplier_id' => $this->supplier->id,
+            'date' => '2026-09-02',
+            'is_working_day' => true,
+        ]);
+
+        $section = $menuDay->sections()->create([
+            'type' => MenuSectionType::Extra,
+            'title' => 'Додатково',
+            'sort' => 0,
+        ]);
+
+        $section->sectionDishes()->create(['dish_id' => $used->id, 'sort' => 0]);
+
+        $this->assertTrue($used->isInUse());
     }
 }

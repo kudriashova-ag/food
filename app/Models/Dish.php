@@ -59,6 +59,35 @@ class Dish extends Model
         return $query->where('is_archived', false);
     }
 
+    /**
+     * Чи стоїть страва десь у меню (дні чи шаблони) або в замовленнях.
+     *
+     * FK на dish_id в menu_section_dishes / menu_template_section_dishes /
+     * order_lines навмисно restrictOnDelete — фізичне видалення такої страви
+     * MySQL відхилить, щоб не зламати історію меню й замовлень.
+     */
+    public function isInUse(): bool
+    {
+        return $this->menuSectionDishes()->exists()
+            || $this->menuTemplateSectionDishes()->exists()
+            || $this->orderLines()->exists();
+    }
+
+    public function menuSectionDishes(): HasMany
+    {
+        return $this->hasMany(MenuSectionDish::class);
+    }
+
+    public function menuTemplateSectionDishes(): HasMany
+    {
+        return $this->hasMany(MenuTemplateSectionDish::class);
+    }
+
+    public function orderLines(): HasMany
+    {
+        return $this->hasMany(OrderLine::class);
+    }
+
     /** Зміни назви й ціни страви — ключове для журналу (ТЗ, п. 13). */
     protected function activityAttributes(): array
     {
