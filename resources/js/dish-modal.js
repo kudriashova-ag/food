@@ -1,7 +1,7 @@
 /**
  * Клік по зображенню страви (у комплексі, групі вибору чи додатково) відкриває
- * спільну модалку з фото, назвою, описом і алергенами. Дані читаються з
- * data-dish-* атрибутів натиснутого елемента — окремого запиту не потрібно.
+ * спільну модалку з фото, назвою, вагою, описом і алергенами. Дані читаються
+ * з data-dish-* атрибутів натиснутого елемента — окремого запиту не потрібно.
  */
 
 export default function initDishModal(root = document) {
@@ -13,6 +13,7 @@ export default function initDishModal(root = document) {
 
     const image = dialog.querySelector('[data-dish-modal-image]');
     const name = dialog.querySelector('[data-dish-modal-name]');
+    const portion = dialog.querySelector('[data-dish-modal-portion]');
     const description = dialog.querySelector('[data-dish-modal-description]');
     const allergens = dialog.querySelector('[data-dish-modal-allergens]');
 
@@ -21,6 +22,7 @@ export default function initDishModal(root = document) {
             image.src = trigger.dataset.dishImage ?? '';
             image.alt = trigger.dataset.dishName ?? '';
             name.textContent = trigger.dataset.dishName ?? '';
+            portion.textContent = trigger.dataset.dishPortion ?? '';
 
             const desc = trigger.dataset.dishDescription ?? '';
             description.textContent = desc;

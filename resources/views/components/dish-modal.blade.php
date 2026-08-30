@@ -19,7 +19,10 @@
              class="h-56 w-full rounded-t-2xl object-cover sm:h-64">
 
         <div class="p-5">
-            <h3 data-dish-modal-name class="text-lg font-semibold leading-snug"></h3>
+            <div class="flex flex-wrap items-baseline gap-x-2">
+                <h3 data-dish-modal-name class="text-lg font-semibold leading-snug"></h3>
+                <span data-dish-modal-portion class="text-sm text-ink-400"></span>
+            </div>
 
             <p data-dish-modal-description class="mt-2 text-sm text-ink-600"></p>
 

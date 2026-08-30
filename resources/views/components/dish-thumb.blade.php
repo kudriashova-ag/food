@@ -21,6 +21,7 @@
 <button type="button" data-dish-trigger
         data-dish-image="{{ $imageUrl }}"
         data-dish-name="{{ $dish->name }}"
+        data-dish-portion="{{ $dish->portion }}"
         data-dish-description="{{ $dish->description }}"
         data-dish-allergens="{{ $allergenNames }}"
         title="{{ $dish->name }}"
