@@ -54,7 +54,7 @@ Route::middleware('student')->group(function (): void {
     Route::get('/consent', [ConsentController::class, 'show'])->name('consent.show');
     Route::post('/consent', [ConsentController::class, 'store'])->name('consent.store');
 
-    Route::middleware('consent')->group(function (): void {
+    Route::middleware(['consent', 'password.changed'])->group(function (): void {
         Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
         Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
         Route::post('/orders/repeat-week', [OrderController::class, 'repeatWeek'])->name('orders.repeat-week');

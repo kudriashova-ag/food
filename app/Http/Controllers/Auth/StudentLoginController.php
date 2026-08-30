@@ -70,6 +70,12 @@ class StudentLoginController extends Controller
         // Кошик збирають ще до входу — переносимо його й ведемо людину туди, де вона зупинилася.
         $moved = $student !== null ? $cart->adoptGuestCart($student, $guestToken) : 0;
 
+        // Тимчасовий пароль (наприклад, після імпорту вчителів) — спершу міняємо його.
+        if (Auth::user()->must_change_password) {
+            return redirect()->route('settings')
+                ->with('error', 'Це тимчасовий пароль — задайте власний, щоб продовжити.');
+        }
+
         return redirect()->intended($moved > 0 ? route('cart') : '/');
     }
 

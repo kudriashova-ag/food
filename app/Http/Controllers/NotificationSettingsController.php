@@ -43,7 +43,10 @@ class NotificationSettingsController extends Controller
             'password.confirmed' => 'Паролі не збігаються.',
         ]);
 
-        $request->user()->update(['password' => $data['password']]);
+        $request->user()->update([
+            'password' => $data['password'],
+            'must_change_password' => false,
+        ]);
 
         return back()->with('status', 'Пароль змінено.');
     }

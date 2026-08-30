@@ -22,6 +22,7 @@ class User extends Authenticatable implements FilamentUser
         'login',
         'email',
         'password',
+        'must_change_password',
         'role',
         'supplier_id',
         'is_active',
@@ -42,6 +43,7 @@ class User extends Authenticatable implements FilamentUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'must_change_password' => 'boolean',
             'role' => UserRole::class,
             'is_active' => 'boolean',
         ];

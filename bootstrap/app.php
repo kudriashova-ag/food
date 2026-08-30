@@ -14,6 +14,7 @@ $app = Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'student' => App\Http\Middleware\EnsureStudent::class,
             'consent' => App\Http\Middleware\EnsureConsentGiven::class,
+            'password.changed' => App\Http\Middleware\EnsurePasswordIsChanged::class,
         ]);
 
         // Telegram не має нашого CSRF-токена; вебхук захищений секретом в адресі.
