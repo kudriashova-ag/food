@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\DeadlinePassedException;
 use App\Exceptions\EmptyCartException;
+use App\Exceptions\MenuUnavailableException;
 use App\Models\MenuDay;
 use App\Models\NonWorkingDay;
 use App\Models\OrderLine;
@@ -21,7 +22,7 @@ class OrderController extends Controller
     {
         try {
             $order = $orders->placeFromCart($request->user()->student);
-        } catch (EmptyCartException|DeadlinePassedException $e) {
+        } catch (EmptyCartException|DeadlinePassedException|MenuUnavailableException $e) {
             return back()->with('error', $e->getMessage());
         }
 

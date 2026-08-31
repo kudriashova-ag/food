@@ -25,4 +25,12 @@ class MenuUnavailableException extends RuntimeException
             config('school.menu_horizon_days'),
         ));
     }
+
+    public static function dayAlreadyOrdered(CarbonInterface $date): self
+    {
+        return new self(sprintf(
+            'На %s вже є оформлене замовлення. Щоб змінити склад, спершу скасуйте його на сторінці «Мої замовлення».',
+            $date->translatedFormat('d.m.Y'),
+        ));
+    }
 }

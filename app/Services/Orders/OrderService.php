@@ -3,6 +3,7 @@
 namespace App\Services\Orders;
 
 use App\Exceptions\EmptyCartException;
+use App\Exceptions\MenuUnavailableException;
 use App\Models\CartItem;
 use App\Models\Order;
 use App\Models\Student;
@@ -38,6 +39,7 @@ class OrderService
         }
 
         $this->assertAllGroupsAreOpen($items);
+        $this->assertNoneAlreadyOrdered($student, $items);
 
         $order = DB::transaction(function () use ($student, $cart, $items): Order {
             $order = Order::create([
@@ -127,6 +129,27 @@ class OrderService
                 $first = $group->first();
 
                 $this->deadlines->assertCanOrder($first->supplier_id, $first->service_date);
+            });
+    }
+
+    /**
+     * Захист від подвійного замовлення того самого дня: якщо кошик потрапив
+     * туди в обхід звичайної форми (перенесений гостьовий кошик, «Повторити
+     * тиждень»), а на цю дату вже є активне замовлення — оформлення блокуємо
+     * тут само, на останньому рубежі.
+     *
+     * @param Collection<int, CartItem> $items
+     */
+    private function assertNoneAlreadyOrdered(Student $student, Collection $items): void
+    {
+        $items
+            ->groupBy(fn (CartItem $item): string => $item->supplier_id.'|'.$item->service_date->toDateString())
+            ->each(function (Collection $group) use ($student): void {
+                $first = $group->first();
+
+                if ($this->cart->hasOrder($student, $first->supplier_id, $first->service_date)) {
+                    throw MenuUnavailableException::dayAlreadyOrdered($first->service_date);
+                }
             });
     }
 

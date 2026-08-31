@@ -42,6 +42,7 @@ class MenuController extends Controller
             'deadlines' => $range,
             'expandedDate' => $nextOpen?->date->toDateString(),
             'datesInCart' => $cart->datesInCartFor($supplier),
+            'datesOrdered' => $cart->datesOrderedFor($supplier, $request->user()?->student),
         ]);
     }
 }

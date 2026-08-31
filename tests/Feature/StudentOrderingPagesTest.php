@@ -201,6 +201,29 @@ class StudentOrderingPagesTest extends TestCase
         $this->assertCount(0, CartItem::query()->get());
     }
 
+    public function test_already_ordered_day_cannot_be_added_to_the_cart_again(): void
+    {
+        $this->placeOrder();
+
+        $this->post(route('cart.store-day', [$this->supplier->slug, self::SERVICE_DATE]), [
+            'complex_qty' => [$this->complex->id => 1],
+        ])
+            ->assertSessionHas('error');
+
+        $this->assertCount(0, CartItem::query()->get());
+    }
+
+    public function test_menu_page_shows_the_already_ordered_badge(): void
+    {
+        $this->placeOrder();
+
+        $this->get(route('menu', $this->supplier->slug))
+            ->assertOk()
+            ->assertSee('замовлено')
+            ->assertSee('Цей день уже замовлено')
+            ->assertDontSee('Додати цей день у кошик');
+    }
+
     public function test_orders_page_shows_the_week(): void
     {
         $this->placeOrder();

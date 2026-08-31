@@ -260,10 +260,79 @@ class OrderFlowTest extends TestCase
         $this->cart->add($this->cartModel, $this->complex, null);
         $first = $this->orders->placeFromCart($this->student);
 
-        $this->cart->add($this->cartModel, $this->extras, $this->water->id);
+        // Другий постачальник: те саме замовлення того самого учня в той самий день —
+        // повторно замовляти в того самого постачальника на вже замовлений день заборонено.
+        $otherSupplier = Supplier::create(['name' => 'Домашня кухня', 'slug' => 'domashnya']);
+
+        DeadlineRule::create([
+            'supplier_id' => $otherSupplier->id,
+            'weekday' => 1,
+            'order_offset_days' => 1,
+            'order_time' => '09:00:00',
+            'cancel_offset_days' => 1,
+            'cancel_time' => '09:00:00',
+        ]);
+
+        $otherMenuDay = MenuDay::create([
+            'supplier_id' => $otherSupplier->id,
+            'date' => self::SERVICE_DATE,
+            'is_working_day' => true,
+            'published_at' => now(),
+        ]);
+
+        $otherExtras = $otherMenuDay->sections()->create([
+            'type' => MenuSectionType::Extra,
+            'title' => 'Додатково',
+            'sort' => 0,
+        ]);
+        $otherExtras->sectionDishes()->create(['dish_id' => $this->water->id, 'sort' => 0]);
+
+        $this->cart->add($this->cartModel, $otherExtras, $this->water->id);
         $second = $this->orders->placeFromCart($this->student);
 
         $this->assertSame('ЗМ-20260810-0001', $first->number);
+        $this->assertSame('ЗМ-20260810-0002', $second->number);
+    }
+
+    public function test_ordering_the_same_day_twice_is_rejected(): void
+    {
+        $this->cart->add($this->cartModel, $this->complex, null);
+        $this->orders->placeFromCart($this->student);
+
+        $this->cart->add($this->cartModel, $this->extras, $this->water->id);
+
+        $this->expectException(MenuUnavailableException::class);
+        $this->expectExceptionMessage('вже є оформлене замовлення');
+
+        $this->orders->placeFromCart($this->student);
+    }
+
+    public function test_cart_reports_a_day_as_already_ordered(): void
+    {
+        $this->assertFalse($this->cart->hasOrder($this->student, $this->supplier->id, self::SERVICE_DATE));
+
+        $this->cart->add($this->cartModel, $this->complex, null);
+        $this->orders->placeFromCart($this->student);
+
+        $this->assertTrue($this->cart->hasOrder($this->student, $this->supplier->id, self::SERVICE_DATE));
+        $this->assertSame(
+            [self::SERVICE_DATE],
+            $this->cart->datesOrderedFor($this->supplier, $this->student),
+        );
+    }
+
+    public function test_cancelling_the_whole_day_allows_ordering_it_again(): void
+    {
+        $this->cart->add($this->cartModel, $this->complex, null);
+        $this->orders->placeFromCart($this->student);
+
+        $this->cancellations->cancelDay($this->student, $this->supplier->id, self::SERVICE_DATE, $this->user);
+
+        $this->assertFalse($this->cart->hasOrder($this->student, $this->supplier->id, self::SERVICE_DATE));
+
+        $this->cart->add($this->cartModel, $this->extras, $this->water->id);
+        $second = $this->orders->placeFromCart($this->student);
+
         $this->assertSame('ЗМ-20260810-0002', $second->number);
     }
 

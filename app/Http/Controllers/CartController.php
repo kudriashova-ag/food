@@ -54,6 +54,17 @@ class CartController extends Controller
             );
         }
 
+        // День уже оформлено раніше — повторне замовлення дублювало б харчування.
+        // Спершу треба скасувати попереднє на сторінці «Мої замовлення».
+        $student = $request->user()?->student;
+
+        if ($this->cart->hasOrder($student, $supplier->id, $menuDay->date)) {
+            return $this->dayResponse(
+                $request,
+                error: "На {$menuDay->date->translatedFormat('d.m.Y')} уже є оформлене замовлення. Щоб змінити склад, спершу скасуйте його на сторінці «Мої замовлення».",
+            );
+        }
+
         $quantities = $request->input('qty', []);
         $choices = $request->input('choice', []);
         $choiceQuantities = $request->input('choice_qty', []);

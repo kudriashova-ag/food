@@ -407,6 +407,47 @@ class CartService
             ->exists();
     }
 
+    /**
+     * Чи є в учня вже оформлене (не скасоване) замовлення на цей день
+     * постачальника — повторно замовити той самий день не можна,
+     * доки попереднє не скасовано на сторінці «Мої замовлення».
+     */
+    public function hasOrder(?Student $student, int $supplierId, CarbonInterface|string $date): bool
+    {
+        if ($student === null) {
+            return false;
+        }
+
+        return OrderLine::query()
+            ->where('student_id', $student->id)
+            ->where('supplier_id', $supplierId)
+            ->whereDate('service_date', CarbonImmutable::parse($date)->toDateString())
+            ->active()
+            ->exists();
+    }
+
+    /**
+     * Дати цього постачальника, на які в учня вже є активне замовлення.
+     *
+     * @return array<int, string>
+     */
+    public function datesOrderedFor(Supplier $supplier, ?Student $student): array
+    {
+        if ($student === null) {
+            return [];
+        }
+
+        return OrderLine::query()
+            ->where('student_id', $student->id)
+            ->where('supplier_id', $supplier->id)
+            ->active()
+            ->pluck('service_date')
+            ->map(fn ($date): string => CarbonImmutable::parse($date)->toDateString())
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     /** Позиції, за якими дедлайн минув, поки кошик лежав незавершеним. */
     public function expiredItems(?Cart $cart): Collection
     {
