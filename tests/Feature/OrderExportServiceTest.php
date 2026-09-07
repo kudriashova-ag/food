@@ -96,11 +96,29 @@ class OrderExportServiceTest extends TestCase
 
     public function test_teachers_do_not_leak_into_pupil_rows(): void
     {
-        $this->teacher('Коваленко Ольга');
-        $this->pupil('Іваненко Марія', grade: 5, letter: 'А');
+        $teacher = $this->teacher('Коваленко Ольга');
+        $this->orderLine($teacher, self::FROM, 230);
+
+        $pupil = $this->pupil('Іваненко Марія', grade: 5, letter: 'А');
+        $this->orderLine($pupil, self::FROM, 230);
 
         $this->assertCount(1, $this->service->pupilRows(self::FROM, self::TO));
         $this->assertCount(1, $this->service->teacherRows(self::FROM, self::TO));
+    }
+
+    public function test_a_person_without_orders_in_the_period_is_not_listed(): void
+    {
+        $this->pupil('Не замовляв', grade: 5, letter: 'А');
+
+        $this->assertCount(0, $this->service->pupilRows(self::FROM, self::TO));
+    }
+
+    public function test_orders_outside_the_period_do_not_include_a_person(): void
+    {
+        $student = $this->pupil('Замовляв іншого тижня', grade: 5, letter: 'А');
+        $this->orderLine($student, '2026-08-25', 230);
+
+        $this->assertCount(0, $this->service->pupilRows(self::FROM, self::TO));
     }
 
     public function test_inactive_student_is_excluded(): void

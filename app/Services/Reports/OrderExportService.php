@@ -13,6 +13,10 @@ use Illuminate\Support\Collection;
  * вчителя, по колонці на кожен день періоду з сумою замовленого цього
  * дня, і підсумкова колонка «Всього до сплати».
  *
+ * У звіт потрапляють лише ті, хто мав хоч одну активну позицію в цьому
+ * періоді — не весь список школи. День без замовлення всередині періоду
+ * все одно показує 0, а не пропуск.
+ *
  * Скасовані позиції (OrderLineStatus::Cancelled) до сум не входять —
  * за них учень/вчитель не платить.
  */
@@ -43,7 +47,17 @@ class OrderExportService
         $start = CarbonImmutable::parse($from)->startOfDay();
         $end = CarbonImmutable::parse($to)->startOfDay();
 
-        $students = $query()->orderBy('full_name')->get();
+        $orderedStudentIds = OrderLine::query()
+            ->whereDate('service_date', '>=', $start->toDateString())
+            ->whereDate('service_date', '<=', $end->toDateString())
+            ->active()
+            ->distinct()
+            ->pluck('student_id');
+
+        $students = $query()
+            ->whereIn('id', $orderedStudentIds)
+            ->orderBy('full_name')
+            ->get();
 
         if ($students->isEmpty()) {
             return collect();
