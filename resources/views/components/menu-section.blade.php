@@ -13,10 +13,10 @@
     @endif
 
     @if ($type === \App\Enums\MenuSectionType::Complex)
-        {{-- Комплекс: фото, назва й вага кожної страви в сітці по 4 в ряд,
+        {{-- Комплекс: фото, назва й вага кожної страви в сітці по 2 в ряд,
              вибору немає — лише кількість порцій набору. --}}
         <div class="rounded-xl border border-ink-200 bg-white p-4">
-            <div class="mb-3 grid grid-cols-4 gap-3">
+            <div class="mb-3 grid grid-cols-2 gap-3">
                 @foreach ($section->sectionDishes as $sectionDish)
                     <div class="flex flex-col items-center gap-1.5 text-center">
                         <x-dish-thumb :dish="$sectionDish->dish" size="grid" />
