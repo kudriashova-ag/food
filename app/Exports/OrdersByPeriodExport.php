@@ -9,12 +9,16 @@ use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithStyles;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 /**
  * Замовлення учнів чи вчителів за період: № / Прізвище і ім'я / Клас /
  * одна колонка на кожен день періоду (сума за день) / Всього до сплати.
+ * Останній рядок — загальна сума по кожній колонці.
  */
-class OrdersByPeriodExport implements Export, FromArray, ShouldAutoSize, WithHeadings
+class OrdersByPeriodExport implements Export, FromArray, ShouldAutoSize, WithHeadings, WithStyles
 {
     use Exportable;
 
@@ -38,7 +42,7 @@ class OrdersByPeriodExport implements Export, FromArray, ShouldAutoSize, WithHea
 
     public function array(): array
     {
-        return $this->rows
+        $rows = $this->rows
             ->map(function (array $row): array {
                 return [
                     $row['number'],
@@ -49,6 +53,50 @@ class OrdersByPeriodExport implements Export, FromArray, ShouldAutoSize, WithHea
                 ];
             })
             ->all();
+
+        $rows[] = $this->totalRow();
+
+        return $rows;
+    }
+
+    /** @return array<int, int|float|string> */
+    private function totalRow(): array
+    {
+        $dateTotals = $this->dates()
+            ->map(fn (CarbonImmutable $date): float => $this->rows->sum(fn (array $row): float => $row['by_date'][$date->toDateString()] ?? 0))
+            ->all();
+
+        return [
+            '',
+            'Разом',
+            '',
+            ...$dateTotals,
+            $this->rows->sum('total'),
+        ];
+    }
+
+    public function styles(Worksheet $sheet): array
+    {
+        $lastColumn = $sheet->getHighestColumn();
+        $lastRow = $sheet->getHighestRow();
+
+        // Шапка: жирний білий текст на темному фоні, той самий рядок закріплюємо,
+        // щоб він лишався видимим при прокручуванні довгого списку.
+        $sheet->getStyle("A1:{$lastColumn}1")->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '4472C4'],
+            ],
+        ]);
+        $sheet->freezePane('A2');
+
+        // Останній рядок — «Разом»: виділяємо жирним, щоб не губився в списку.
+        $sheet->getStyle("A{$lastRow}:{$lastColumn}{$lastRow}")->applyFromArray([
+            'font' => ['bold' => true],
+        ]);
+
+        return [];
     }
 
     /** @return Collection<int, CarbonImmutable> */
