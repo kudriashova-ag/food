@@ -69,6 +69,26 @@ class Student extends Model
         return $query->where('is_active', true);
     }
 
+    /** Учень зі своїм класом (звичайний випадок для школи). */
+    public function scopePupils(Builder $query): Builder
+    {
+        return $query->whereNotNull('school_class_id');
+    }
+
+    /**
+     * Вчитель — той самий Student, але без класу (TeacherImportService
+     * заводить його саме так, окремої ролі/моделі Teacher немає).
+     */
+    public function scopeTeachers(Builder $query): Builder
+    {
+        return $query->whereNull('school_class_id');
+    }
+
+    public function isTeacher(): bool
+    {
+        return $this->school_class_id === null;
+    }
+
     public function hasConsented(): bool
     {
         return $this->consent_at !== null;
