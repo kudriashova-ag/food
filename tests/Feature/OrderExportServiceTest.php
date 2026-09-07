@@ -42,7 +42,7 @@ class OrderExportServiceTest extends TestCase
         $this->orderLine($student, self::FROM, 230);
         $this->orderLine($student, self::FROM, 45);
 
-        $rows = $this->service->pupilRows(self::FROM, self::TO);
+        $rows = $this->service->pupilReport(self::FROM, self::TO)['rows'];
 
         $this->assertCount(1, $rows);
         $row = $rows->first();
@@ -59,7 +59,7 @@ class OrderExportServiceTest extends TestCase
 
         $this->orderLine($student, self::FROM, 100);
 
-        $row = $this->service->pupilRows(self::FROM, self::TO)->first();
+        $row = $this->service->pupilReport(self::FROM, self::TO)['rows']->first();
 
         $this->assertSame(100.0, $row['by_date'][self::FROM]);
         $this->assertSame(0.0, $row['by_date']['2026-09-02']);
@@ -75,7 +75,7 @@ class OrderExportServiceTest extends TestCase
         $this->orderLine($student, self::FROM, 230);
         $this->orderLine($student, self::FROM, 45, status: OrderLineStatus::Cancelled);
 
-        $row = $this->service->pupilRows(self::FROM, self::TO)->first();
+        $row = $this->service->pupilReport(self::FROM, self::TO)['rows']->first();
 
         $this->assertSame(230.0, $row['by_date'][self::FROM]);
         $this->assertSame(230.0, $row['total']);
@@ -87,7 +87,7 @@ class OrderExportServiceTest extends TestCase
 
         $this->orderLine($teacher, self::FROM, 230);
 
-        $rows = $this->service->teacherRows(self::FROM, self::TO);
+        $rows = $this->service->teacherReport(self::FROM, self::TO)['rows'];
 
         $this->assertCount(1, $rows);
         $this->assertSame('', $rows->first()['class']);
@@ -102,15 +102,15 @@ class OrderExportServiceTest extends TestCase
         $pupil = $this->pupil('Іваненко Марія', grade: 5, letter: 'А');
         $this->orderLine($pupil, self::FROM, 230);
 
-        $this->assertCount(1, $this->service->pupilRows(self::FROM, self::TO));
-        $this->assertCount(1, $this->service->teacherRows(self::FROM, self::TO));
+        $this->assertCount(1, $this->service->pupilReport(self::FROM, self::TO)['rows']);
+        $this->assertCount(1, $this->service->teacherReport(self::FROM, self::TO)['rows']);
     }
 
     public function test_a_person_without_orders_in_the_period_is_not_listed(): void
     {
         $this->pupil('Не замовляв', grade: 5, letter: 'А');
 
-        $this->assertCount(0, $this->service->pupilRows(self::FROM, self::TO));
+        $this->assertCount(0, $this->service->pupilReport(self::FROM, self::TO)['rows']);
     }
 
     public function test_orders_outside_the_period_do_not_include_a_person(): void
@@ -118,7 +118,7 @@ class OrderExportServiceTest extends TestCase
         $student = $this->pupil('Замовляв іншого тижня', grade: 5, letter: 'А');
         $this->orderLine($student, '2026-08-25', 230);
 
-        $this->assertCount(0, $this->service->pupilRows(self::FROM, self::TO));
+        $this->assertCount(0, $this->service->pupilReport(self::FROM, self::TO)['rows']);
     }
 
     public function test_inactive_student_is_excluded(): void
@@ -128,7 +128,44 @@ class OrderExportServiceTest extends TestCase
 
         $this->orderLine($student, self::FROM, 230);
 
-        $this->assertCount(0, $this->service->pupilRows(self::FROM, self::TO));
+        $this->assertCount(0, $this->service->pupilReport(self::FROM, self::TO)['rows']);
+    }
+
+    public function test_by_supplier_sums_the_whole_period_per_supplier(): void
+    {
+        $otherSupplier = Supplier::create(['name' => 'Домашня кухня', 'slug' => 'domashnya']);
+
+        $student = $this->pupil('Іваненко Марія', grade: 5, letter: 'А');
+
+        $this->orderLine($student, self::FROM, 230);
+        $this->orderLine($student, '2026-09-03', 230);
+        $this->orderLine($student, self::FROM, 100, supplier: $otherSupplier);
+
+        $report = $this->service->pupilReport(self::FROM, self::TO);
+
+        $this->assertSame(
+            ['Домашня кухня', 'Смачно'],
+            $report['suppliers']->pluck('name')->sort()->values()->all(),
+        );
+
+        $row = $report['rows']->first();
+
+        $this->assertSame(460.0, $row['by_supplier'][$this->supplier->id]);
+        $this->assertSame(100.0, $row['by_supplier'][$otherSupplier->id]);
+        $this->assertSame(560.0, $row['total']);
+    }
+
+    public function test_supplier_list_only_includes_suppliers_actually_ordered_from(): void
+    {
+        Supplier::create(['name' => 'Ніхто не замовляв', 'slug' => 'unused']);
+
+        $student = $this->pupil('Іваненко Марія', grade: 5, letter: 'А');
+        $this->orderLine($student, self::FROM, 230);
+
+        $report = $this->service->pupilReport(self::FROM, self::TO);
+
+        $this->assertCount(1, $report['suppliers']);
+        $this->assertSame($this->supplier->id, $report['suppliers']->first()->id);
     }
 
     private function pupil(string $name, int $grade, string $letter): Student
@@ -165,7 +202,7 @@ class OrderExportServiceTest extends TestCase
         ]);
     }
 
-    private function orderLine(Student $student, string $date, float $price, OrderLineStatus $status = OrderLineStatus::Active): void
+    private function orderLine(Student $student, string $date, float $price, OrderLineStatus $status = OrderLineStatus::Active, ?Supplier $supplier = null): void
     {
         $order = Order::create([
             'number' => 'ЗМ-TEST-'.uniqid(),
@@ -177,7 +214,7 @@ class OrderExportServiceTest extends TestCase
 
         $order->lines()->create([
             'student_id' => $student->id,
-            'supplier_id' => $this->supplier->id,
+            'supplier_id' => ($supplier ?? $this->supplier)->id,
             'service_date' => $date,
             'dish_id' => null,
             'dish_name' => 'Тестова страва',

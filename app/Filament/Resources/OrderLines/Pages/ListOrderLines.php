@@ -24,20 +24,20 @@ class ListOrderLines extends ListRecords
             static::exportAction(
                 name: 'exportPupils',
                 label: 'Експорт: учні',
-                rows: fn (CarbonImmutable $from, CarbonImmutable $to) => app(OrderExportService::class)->pupilRows($from, $to),
+                report: fn (CarbonImmutable $from, CarbonImmutable $to) => app(OrderExportService::class)->pupilReport($from, $to),
                 filenamePrefix: 'zamovlennia-uchni',
             ),
             static::exportAction(
                 name: 'exportTeachers',
                 label: 'Експорт: вчителі',
-                rows: fn (CarbonImmutable $from, CarbonImmutable $to) => app(OrderExportService::class)->teacherRows($from, $to),
+                report: fn (CarbonImmutable $from, CarbonImmutable $to) => app(OrderExportService::class)->teacherReport($from, $to),
                 filenamePrefix: 'zamovlennia-vchyteli',
             ),
         ];
     }
 
-    /** @param callable(CarbonImmutable, CarbonImmutable): \Illuminate\Support\Collection $rows */
-    private static function exportAction(string $name, string $label, callable $rows, string $filenamePrefix): Action
+    /** @param callable(CarbonImmutable, CarbonImmutable): array{rows: \Illuminate\Support\Collection, suppliers: \Illuminate\Support\Collection} $report */
+    private static function exportAction(string $name, string $label, callable $report, string $filenamePrefix): Action
     {
         return Action::make($name)
             ->label($label)
@@ -62,11 +62,13 @@ class ListOrderLines extends ListRecords
                     ->afterOrEqual('from')
                     ->default(static::nextWeekEnd()->toDateString()),
             ])
-            ->action(function (array $data) use ($rows, $filenamePrefix): BinaryFileResponse {
+            ->action(function (array $data) use ($report, $filenamePrefix): BinaryFileResponse {
                 $from = CarbonImmutable::parse($data['from'])->startOfDay();
                 $to = CarbonImmutable::parse($data['to'])->startOfDay();
 
-                $export = new OrdersByPeriodExport($rows($from, $to), $from, $to);
+                $result = $report($from, $to);
+
+                $export = new OrdersByPeriodExport($result['rows'], $result['suppliers'], $from, $to);
 
                 $path = sprintf('exports/%s.xlsx', Str::uuid());
                 $export->store($path, 'local');
