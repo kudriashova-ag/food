@@ -4,7 +4,8 @@ namespace Tests\Feature;
 
 use App\Enums\OrderLineStatus;
 use App\Enums\UserRole;
-use App\Filament\Resources\OrderLines\Pages\ListOrderLines;
+use App\Filament\Resources\Orders\Pages\ListOrders;
+use App\Filament\Resources\Orders\Pages\ViewOrder;
 use App\Filament\Resources\SchoolClasses\Pages\ListSchoolClasses;
 use App\Filament\Resources\Students\Pages\CreateStudent;
 use App\Filament\Resources\Students\Pages\ListStudents;
@@ -170,13 +171,24 @@ class AdminPanelTest extends TestCase
         $this->assertSame(11, $graduate->schoolClass->grade);
     }
 
+    public function test_view_order_page_renders_the_composition(): void
+    {
+        $line = $this->orderLine();
+
+        Livewire::test(ViewOrder::class, ['record' => $line->order_id])
+            ->assertOk()
+            ->assertSee($line->order->number)
+            ->assertSee($line->dish_name)
+            ->assertSee('Скасувати все замовлення');
+    }
+
     public function test_admin_cancels_a_line_with_a_reason(): void
     {
         $line = $this->orderLine();
 
-        Livewire::test(ListOrderLines::class)
-            ->callTableAction('cancel', $line, ['reason' => 'Скасовано школою: карантин'])
-            ->assertHasNoTableActionErrors();
+        Livewire::test(ViewOrder::class, ['record' => $line->order_id])
+            ->callAction('cancelLine', arguments: ['record' => $line->id], data: ['reason' => 'Скасовано школою: карантин'])
+            ->assertHasNoActionErrors();
 
         $line->refresh();
 
@@ -185,24 +197,46 @@ class AdminPanelTest extends TestCase
         $this->assertSame($this->admin->id, $line->cancelled_by);
     }
 
-    public function test_cancellation_requires_a_reason(): void
+    public function test_line_cancellation_requires_a_reason(): void
     {
         $line = $this->orderLine();
 
-        Livewire::test(ListOrderLines::class)
-            ->callTableAction('cancel', $line, [])
-            ->assertHasTableActionErrors(['reason']);
+        Livewire::test(ViewOrder::class, ['record' => $line->order_id])
+            ->callAction('cancelLine', arguments: ['record' => $line->id], data: [])
+            ->assertHasActionErrors(['reason']);
 
         $this->assertSame(OrderLineStatus::Active, $line->fresh()->status);
     }
 
-    public function test_admin_sees_lines_of_every_supplier(): void
+    public function test_admin_cancels_the_whole_order(): void
+    {
+        $line = $this->orderLine();
+
+        Livewire::test(ViewOrder::class, ['record' => $line->order_id])
+            ->callAction('cancelOrder', data: ['reason' => 'Скасовано школою: карантин'])
+            ->assertHasNoActionErrors();
+
+        $this->assertSame(OrderLineStatus::Cancelled, $line->fresh()->status);
+    }
+
+    public function test_order_cancellation_requires_a_reason(): void
+    {
+        $line = $this->orderLine();
+
+        Livewire::test(ViewOrder::class, ['record' => $line->order_id])
+            ->callAction('cancelOrder', data: [])
+            ->assertHasActionErrors(['reason']);
+
+        $this->assertSame(OrderLineStatus::Active, $line->fresh()->status);
+    }
+
+    public function test_admin_sees_orders_of_every_supplier(): void
     {
         $first = $this->orderLine('Смачно', 'smachno');
         $second = $this->orderLine('Домашня кухня', 'domashnya');
 
-        Livewire::test(ListOrderLines::class)
-            ->assertCanSeeTableRecords([$first, $second]);
+        Livewire::test(ListOrders::class)
+            ->assertCanSeeTableRecords([$first->order, $second->order]);
     }
 
     private function student(string $name, SchoolClass $class): Student

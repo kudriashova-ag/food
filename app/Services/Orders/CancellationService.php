@@ -14,8 +14,9 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Скасування завжди гранулярне: окрема страва або окремий день,
- * ніколи не все замовлення цілком (ТЗ, п. 8.1).
+ * Учневі доступне лише гранулярне скасування — окрема страва або окремий
+ * день (ТЗ, п. 8.1). Адміністратор школи в адмінці може додатково
+ * скасувати все замовлення цілком одним 'cancelOrder()'.
  *
  * Позиція не видаляється — змінює статус, щоб лишитися в журналі та звітах.
  */
@@ -111,6 +112,27 @@ class CancellationService
 
         if ($lines->isNotEmpty()) {
             $this->notify($student, $lines, $actor, $reason);
+        }
+
+        return $lines->count();
+    }
+
+    /**
+     * Скасовує все замовлення цілком: усі активні позиції незалежно від дня
+     * чи постачальника. Використовується адміністратором школи в адмінці
+     * (на відміну від учня, якому доступне лише гранулярне скасування,
+     * ТЗ, п. 8.1, — тут явна дія «скасувати все замовлення»).
+     */
+    public function cancelOrder(Order $order, User $actor, ?string $reason = null): int
+    {
+        $lines = $order->lines()->active()->get();
+
+        foreach ($lines as $line) {
+            $this->cancelLine($line, $actor, reason: $reason, bypassDeadline: true, notify: false);
+        }
+
+        if ($lines->isNotEmpty()) {
+            $this->notify($lines->first()->student, $lines, $actor, $reason);
         }
 
         return $lines->count();

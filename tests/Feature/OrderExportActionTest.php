@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\MenuSectionType;
 use App\Enums\UserRole;
-use App\Filament\Resources\OrderLines\Pages\ListOrderLines;
+use App\Filament\Resources\Orders\Pages\ListOrders;
 use App\Models\Order;
 use App\Models\SchoolClass;
 use App\Models\Student;
@@ -41,7 +41,7 @@ class OrderExportActionTest extends TestCase
     {
         $this->pupil('Іваненко Марія', 5, 'А', '2026-09-01', 230);
 
-        Livewire::test(ListOrderLines::class)
+        Livewire::test(ListOrders::class)
             ->callAction('exportPupils', data: [
                 'from' => '2026-09-01',
                 'to' => '2026-09-04',
@@ -53,7 +53,7 @@ class OrderExportActionTest extends TestCase
     {
         $this->teacher('Коваленко Ольга', '2026-09-01', 230);
 
-        Livewire::test(ListOrderLines::class)
+        Livewire::test(ListOrders::class)
             ->callAction('exportTeachers', data: [
                 'from' => '2026-09-01',
                 'to' => '2026-09-04',

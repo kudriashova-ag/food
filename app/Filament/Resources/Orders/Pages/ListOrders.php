@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Filament\Resources\OrderLines\Pages;
+namespace App\Filament\Resources\Orders\Pages;
 
 use App\Exports\OrdersByPeriodExport;
-use App\Filament\Resources\OrderLines\OrderLineResource;
+use App\Filament\Resources\Orders\OrderResource;
 use App\Services\Reports\OrderExportService;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -14,9 +14,9 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
-class ListOrderLines extends ListRecords
+class ListOrders extends ListRecords
 {
-    protected static string $resource = OrderLineResource::class;
+    protected static string $resource = OrderResource::class;
 
     protected function getHeaderActions(): array
     {

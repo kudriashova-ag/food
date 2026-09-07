@@ -76,6 +76,11 @@ class OrderLine extends Model
         return $query->where('status', OrderLineStatus::Active);
     }
 
+    public function scopeCancelled(Builder $query): Builder
+    {
+        return $query->where('status', OrderLineStatus::Cancelled);
+    }
+
     public function scopeForServiceDate(Builder $query, mixed $date): Builder
     {
         return $query->whereDate('service_date', $date);
