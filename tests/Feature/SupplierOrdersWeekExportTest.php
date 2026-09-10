@@ -96,5 +96,9 @@ class SupplierOrdersWeekExportTest extends TestCase
         // Рядок дня тижня (D1) — власний темніший фон і центрування
         $this->assertSame('3B1A5C', $sheet->getStyle('D1')->getFill()->getStartColor()->getRGB());
         $this->assertSame('center', $sheet->getStyle('D1')->getAlignment()->getHorizontal());
+
+        // Рамка навколо комірок даних
+        $this->assertSame('thin', $sheet->getStyle('A3')->getBorders()->getBottom()->getBorderStyle());
+        $this->assertSame('thin', $sheet->getStyle('D3')->getBorders()->getRight()->getBorderStyle());
     }
 }

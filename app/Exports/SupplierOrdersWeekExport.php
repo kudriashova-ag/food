@@ -11,6 +11,7 @@ use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
@@ -160,6 +161,16 @@ class SupplierOrdersWeekExport implements Export, FromArray, WithColumnWidths, W
                 ],
             ]);
         }
+
+        // Рамка навколо кожної комірки всієї таблиці (шапка + дані).
+        $sheet->getStyle("A1:{$lastColumn}{$lastRow}")->applyFromArray([
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'BFBFBF'],
+                ],
+            ],
+        ]);
 
         // Закріпити шапку й перші три колонки.
         $sheet->freezePane('D3');
