@@ -92,5 +92,9 @@ class SupplierOrdersWeekExportTest extends TestCase
 
         // № / Прізвище / Клас — об'єднані по вертикалі
         $this->assertContains('A1:A2', array_keys($sheet->getMergeCells()));
+
+        // Рядок дня тижня (D1) — власний темніший фон і центрування
+        $this->assertSame('3B1A5C', $sheet->getStyle('D1')->getFill()->getStartColor()->getRGB());
+        $this->assertSame('center', $sheet->getStyle('D1')->getAlignment()->getHorizontal());
     }
 }

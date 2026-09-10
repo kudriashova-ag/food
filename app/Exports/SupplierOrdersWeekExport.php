@@ -138,14 +138,27 @@ class SupplierOrdersWeekExport implements Export, FromArray, WithColumnWidths, W
 
         foreach ($this->columns->groupBy(fn (array $c): string => $c['date']->toDateString()) as $dayColumns) {
             $span = $dayColumns->count();
+            $from = Coordinate::stringFromColumnIndex($columnIndex);
+            $to = Coordinate::stringFromColumnIndex($columnIndex + $span - 1);
 
             if ($span > 1) {
-                $from = Coordinate::stringFromColumnIndex($columnIndex);
-                $to = Coordinate::stringFromColumnIndex($columnIndex + $span - 1);
                 $sheet->mergeCells("{$from}1:{$to}1");
             }
 
             $columnIndex += $span;
+        }
+
+        // Рядок 1 над секціями (день тижня): темніший фон, текст по центру.
+        if ($this->columns->isNotEmpty()) {
+            $firstDayColumn = Coordinate::stringFromColumnIndex(self::FIXED_COLUMNS + 1);
+
+            $sheet->getStyle("{$firstDayColumn}1:{$lastColumn}1")->applyFromArray([
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '3B1A5C']],
+                'alignment' => [
+                    'horizontal' => Alignment::HORIZONTAL_CENTER,
+                    'vertical' => Alignment::VERTICAL_CENTER,
+                ],
+            ]);
         }
 
         // Закріпити шапку й перші три колонки.
