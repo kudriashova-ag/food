@@ -83,6 +83,18 @@ class SupplierReportsPageTest extends TestCase
             ->assertFileDownloaded('kuhnia-smachno-2026-08-17.pdf');
     }
 
+    public function test_week_orders_export_returns_a_file(): void
+    {
+        $this->line('Іваненко Марія', 5, 'А', 'Куряча котлета', 1);
+
+        Livewire::test(KitchenReports::class)
+            ->callAction('weekOrders', data: [
+                'from' => self::SERVICE_DATE,
+                'to' => '2026-08-21',
+            ])
+            ->assertFileDownloaded('zamovlennia-smachno-2026-08-17-2026-08-21.xlsx');
+    }
+
     private function line(
         string $name,
         int $grade,
