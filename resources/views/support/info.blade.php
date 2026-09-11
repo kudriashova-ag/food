@@ -82,6 +82,65 @@
         </div>
     </div>
 
+    <div class="card mt-4 overflow-hidden">
+        <details class="group">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-2 px-5 py-4 select-none
+                            transition hover:bg-ink-50 [&::-webkit-details-marker]:hidden">
+                <span class="flex items-center gap-2.5 font-bold">
+                    <svg class="h-4 w-4 shrink-0 text-ink-400 transition-transform group-open:rotate-90"
+                         viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="m9 18 6-6-6-6"/>
+                    </svg>
+                    Детальна інструкція
+                </span>
+            </summary>
+
+            <div class="space-y-4 border-t border-ink-100 px-5 py-4 text-sm leading-relaxed text-ink-700">
+                <div>
+                    <h3 class="mb-1 font-semibold text-ink-900">Меню дня</h3>
+                    <p>
+                        Меню складається із секцій. <strong>Комплекс</strong> — набір страв одним блоком
+                        за фіксованою ціною, завжди одна порція на день; галочку з окремої страви
+                        комплексу можна зняти. <strong>Група вибору</strong> — взаємовиключні варіанти
+                        (наприклад суп або борщ), обирається лише один, і його можна замовити
+                        окремо від комплексу. <strong>Додаткові страви</strong> — вода, випічка,
+                        солодощі — обираються незалежно, у довільній кількості.
+                    </p>
+                </div>
+
+                <div>
+                    <h3 class="mb-1 font-semibold text-ink-900">Кошик на кількох постачальників</h3>
+                    <p>
+                        Кошик спільний для всіх постачальників і показує позиції згруповані
+                        по днях. Якщо на один день замовлено в кількох постачальників,
+                        назва кожної страви супроводжується постачальником у дужках —
+                        наприклад «Суп з фрикадельками (Bella Vita)».
+                    </p>
+                </div>
+
+                <div>
+                    <h3 class="mb-1 font-semibold text-ink-900">Повторити тиждень</h3>
+                    <p>
+                        На сторінці «Мої замовлення» кнопка «Повторити цей тиждень» переносить
+                        весь склад поточного тижня на наступний одним натисканням. Страви,
+                        яких уже немає в меню постачальника, просто пропускаються.
+                    </p>
+                </div>
+
+                <div>
+                    <h3 class="mb-1 font-semibold text-ink-900">Скасування</h3>
+                    <p>
+                        Поки не минув дедлайн скасування, можна прибрати окрему страву
+                        або скасувати весь день у одного постачальника разом. Скасована
+                        позиція лишається видимою перекресленою — з часом скасування
+                        й причиною, якщо її вказала школа.
+                    </p>
+                </div>
+            </div>
+        </details>
+    </div>
+
     <div class="card mt-4 flex flex-col items-start gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <div class="font-semibold">Не знайшли відповіді?</div>
