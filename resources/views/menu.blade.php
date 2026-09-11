@@ -35,8 +35,10 @@
             // решту відкривають дотиком по шапці.
             $expanded = $day->date->toDateString() === $expandedDate;
 
-            $mainSections = $day->sections->where('type', '!==', \App\Enums\MenuSectionType::Extra);
+            $mainSections = $day->sections->where('type', \App\Enums\MenuSectionType::Complex);
+            $choiceSections = $day->sections->where('type', \App\Enums\MenuSectionType::Choice);
             $extraSections = $day->sections->where('type', \App\Enums\MenuSectionType::Extra);
+            $sideSections = $choiceSections->merge($extraSections);
 
             // Стартова сума: 1 порція кожного комплексу (за його фіксованою ціною).
             // Далі значення перераховує JS при кожній зміні вибору.
@@ -120,7 +122,7 @@
                      тут уже нема куди, склад правиться в кошику чи скасуванням
                      наявного замовлення. --}}
                 <fieldset @disabled(! $open || $inCart || $alreadyOrdered) data-day-fields>
-                    <div class="grid gap-5 px-4 py-4 {{ $extraSections->isNotEmpty() && $mainSections->isNotEmpty() ? 'md:grid-cols-2' : '' }}">
+                    <div class="grid gap-5 px-4 py-4 {{ $sideSections->isNotEmpty() && $mainSections->isNotEmpty() ? 'md:grid-cols-2' : '' }}">
                         @if ($mainSections->isNotEmpty())
                             <div class="space-y-5">
                                 <div class="text-xs font-semibold uppercase tracking-wider text-deep-700">Комплекс</div>
@@ -131,15 +133,21 @@
                             </div>
                         @endif
 
-                        @if ($extraSections->isNotEmpty())
+                        @if ($sideSections->isNotEmpty())
                             <div class="space-y-3 md:border-l md:border-ink-100 md:pl-5">
-                                <div class="text-xs font-semibold uppercase tracking-wider text-ink-400">Додатково</div>
-
-                                {{-- Додаткових страв буває багато — колонка гортається окремо від сторінки. --}}
+                                {{-- Група вибору йде першою в боковій колонці, за нею — додаткові страви. --}}
                                 <div class="max-h-96 space-y-5 overflow-y-auto pr-1">
-                                    @foreach ($extraSections as $section)
+                                    @foreach ($choiceSections as $section)
                                         <x-menu-section :section="$section" />
                                     @endforeach
+
+                                    @if ($extraSections->isNotEmpty())
+                                        <div class="text-xs font-semibold uppercase tracking-wider text-ink-400">Додатково</div>
+
+                                        @foreach ($extraSections as $section)
+                                            <x-menu-section :section="$section" />
+                                        @endforeach
+                                    @endif
                                 </div>
                             </div>
                         @endif

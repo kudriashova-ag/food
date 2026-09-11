@@ -74,17 +74,6 @@
             <div class="flex items-center gap-2 px-3 text-xs text-ink-400">
                 <span>💡 Можна замовити тільки цю страву, без комплексу</span>
             </div>
-
-            <div class="flex items-center gap-2 px-3 text-sm text-ink-500">
-                <span>Порцій</span>
-                <select name="choice_qty[{{ $section->id }}]" data-choice-qty="{{ $section->id }}"
-                        class="rounded-lg border border-ink-300 bg-white px-2.5 py-1.5 text-sm font-medium
-                               focus:border-deep-500 focus:outline-none focus:ring-2 focus:ring-deep-100">
-                    @for ($n = 1; $n <= 5; $n++)
-                        <option value="{{ $n }}">{{ $n }}</option>
-                    @endfor
-                </select>
-            </div>
         </div>
     @else
         {{-- Extra: незалежні додаткові страви. --}}

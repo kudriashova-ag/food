@@ -67,7 +67,6 @@ class CartController extends Controller
 
         $quantities = $request->input('qty', []);
         $choices = $request->input('choice', []);
-        $choiceQuantities = $request->input('choice_qty', []);
         $complexQuantities = $request->input('complex_qty', []);
 
         $added = 0;
@@ -97,12 +96,7 @@ class CartController extends Controller
                 $chosen = $choices[$section->id] ?? null;
 
                 if (! empty($chosen)) {
-                    $this->cart->add(
-                        $cart,
-                        $section,
-                        (int) $chosen,
-                        max(1, (int) ($choiceQuantities[$section->id] ?? 1)),
-                    );
+                    $this->cart->add($cart, $section, (int) $chosen, 1);
                     $added++;
                 }
             }

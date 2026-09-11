@@ -1,7 +1,7 @@
 /**
  * Сума за день у меню оновлюється просто в браузері, без запиту на сервер:
  * ціна кожної страви лежить у data-price, кількість — у значенні select'а,
- * а для групи вибору береться окреме поле «Порцій».
+ * а для групи вибору береться 1 порція.
  *
  * Сервер малює стартову суму сам, тож без JS сторінка теж лишається коректною.
  */
@@ -10,12 +10,6 @@ const money = new Intl.NumberFormat('uk-UA', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
 });
-
-function portions(form, sectionId) {
-    const field = form.querySelector(`[data-choice-qty="${sectionId}"]`);
-
-    return Number.parseInt(field?.value ?? '1', 10) || 0;
-}
 
 function dayTotal(form) {
     let total = 0;
@@ -32,7 +26,7 @@ function dayTotal(form) {
 
         if (field.type === 'radio') {
             if (field.checked) {
-                total += price * portions(form, field.dataset.section);
+                total += price;
             }
 
             return;
