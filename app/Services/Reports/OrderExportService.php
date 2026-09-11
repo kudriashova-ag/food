@@ -10,14 +10,14 @@ use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 /**
- * Дані для Excel-експорту замовлень за період: один рядок на учня чи
- * вчителя, по колонці на кожен день періоду з сумою замовленого цього
- * дня, далі по колонці на кожного постачальника (сума за весь період),
- * і підсумкова колонка «Всього до сплати».
+ * Дані для Excel-експорту замовлень за період, окремим звітом на
+ * кожного постачальника: один рядок — учень чи вчитель, по колонці
+ * на кожен день періоду з сумою замовленого цього дня саме в цього
+ * постачальника, і підсумкова колонка «Разом».
  *
- * У звіт потрапляють лише ті, хто мав хоч одну активну позицію в цьому
- * періоді — не весь список школи. День чи постачальник без замовлення
- * для такої людини все одно показує 0, а не пропуск.
+ * У звіт постачальника потрапляють лише ті, хто мав хоч одну активну
+ * позицію саме в нього за цей період. День без замовлення всередині
+ * періоду все одно показує 0, а не пропуск.
  *
  * Скасовані позиції (OrderLineStatus::Cancelled) до сум не входять —
  * за них учень/вчитель не платить.
@@ -25,26 +25,26 @@ use Illuminate\Support\Collection;
 class OrderExportService
 {
     /**
-     * @return array{rows: Collection<int, array{number: int, full_name: string, class: string, by_date: array<string, float>, by_supplier: array<int, float>, total: float}>, suppliers: Collection<int, Supplier>}
+     * @return Collection<int, array{supplier: Supplier, rows: Collection<int, array{number: int, full_name: string, class: string, by_date: array<string, float>, total: float}>}>
      */
-    public function pupilReport(CarbonInterface|string $from, CarbonInterface|string $to): array
+    public function pupilReportsBySupplier(CarbonInterface|string $from, CarbonInterface|string $to): Collection
     {
-        return $this->report($from, $to, fn () => Student::query()->pupils()->active()->with('schoolClass'));
+        return $this->reportsBySupplier($from, $to, fn () => Student::query()->pupils()->active()->with('schoolClass'));
     }
 
     /**
-     * @return array{rows: Collection<int, array{number: int, full_name: string, class: string, by_date: array<string, float>, by_supplier: array<int, float>, total: float}>, suppliers: Collection<int, Supplier>}
+     * @return Collection<int, array{supplier: Supplier, rows: Collection<int, array{number: int, full_name: string, class: string, by_date: array<string, float>, total: float}>}>
      */
-    public function teacherReport(CarbonInterface|string $from, CarbonInterface|string $to): array
+    public function teacherReportsBySupplier(CarbonInterface|string $from, CarbonInterface|string $to): Collection
     {
-        return $this->report($from, $to, fn () => Student::query()->teachers()->active());
+        return $this->reportsBySupplier($from, $to, fn () => Student::query()->teachers()->active());
     }
 
     /**
      * @param  callable(): \Illuminate\Database\Eloquent\Builder<Student>  $query
-     * @return array{rows: Collection<int, array{number: int, full_name: string, class: string, by_date: array<string, float>, by_supplier: array<int, float>, total: float}>, suppliers: Collection<int, Supplier>}
+     * @return Collection<int, array{supplier: Supplier, rows: Collection<int, array{number: int, full_name: string, class: string, by_date: array<string, float>, total: float}>}>
      */
-    private function report(CarbonInterface|string $from, CarbonInterface|string $to, callable $query): array
+    private function reportsBySupplier(CarbonInterface|string $from, CarbonInterface|string $to, callable $query): Collection
     {
         $start = CarbonImmutable::parse($from)->startOfDay();
         $end = CarbonImmutable::parse($to)->startOfDay();
@@ -59,56 +59,52 @@ class OrderExportService
         $students = $query()
             ->whereIn('id', $orderedStudentIds)
             ->orderBy('full_name')
-            ->get();
+            ->get()
+            ->keyBy('id');
 
         if ($students->isEmpty()) {
-            return ['rows' => collect(), 'suppliers' => collect()];
+            return collect();
         }
 
         $lines = (clone $periodLines)
-            ->whereIn('student_id', $students->pluck('id'))
+            ->whereIn('student_id', $students->keys())
             ->with('supplier')
             ->get();
 
-        // Лише постачальники, які реально фігурують у цих замовленнях —
-        // не весь довідник, щоб не тягнути порожні колонки.
         $suppliers = $lines->pluck('supplier')->unique('id')->sortBy('name')->values();
 
-        $byStudent = $lines->groupBy('student_id');
+        return $suppliers->map(function (Supplier $supplier) use ($lines, $students, $start, $end): array {
+            $supplierLines = $lines->where('supplier_id', $supplier->id)->groupBy('student_id');
 
-        $rows = $students
-            ->values()
-            ->map(function (Student $student, int $index) use ($byStudent, $suppliers, $start, $end): array {
-                $studentLines = $byStudent->get($student->id, collect());
+            $rows = $supplierLines
+                ->keys()
+                // Той самий порядок, що й загальний список (за ПІБ), не порядок появи в лініях.
+                ->sortBy(fn (int $studentId): string => $students->get($studentId)->full_name)
+                ->values()
+                ->map(function (int $studentId, int $index) use ($supplierLines, $students, $start, $end): array {
+                    $student = $students->get($studentId);
+                    $studentLines = $supplierLines->get($studentId);
 
-                $byDate = [];
+                    $byDate = [];
 
-                for ($date = $start; $date->lessThanOrEqualTo($end); $date = $date->addDay()) {
-                    $dateKey = $date->toDateString();
+                    for ($date = $start; $date->lessThanOrEqualTo($end); $date = $date->addDay()) {
+                        $dateKey = $date->toDateString();
 
-                    $byDate[$dateKey] = (float) $studentLines
-                        ->filter(fn (OrderLine $line): bool => $line->service_date->toDateString() === $dateKey)
-                        ->sum(fn (OrderLine $line): float => $line->subtotal());
-                }
+                        $byDate[$dateKey] = (float) $studentLines
+                            ->filter(fn (OrderLine $line): bool => $line->service_date->toDateString() === $dateKey)
+                            ->sum(fn (OrderLine $line): float => $line->subtotal());
+                    }
 
-                $bySupplier = $suppliers
-                    ->mapWithKeys(fn (Supplier $supplier): array => [
-                        $supplier->id => (float) $studentLines
-                            ->filter(fn (OrderLine $line): bool => $line->supplier_id === $supplier->id)
-                            ->sum(fn (OrderLine $line): float => $line->subtotal()),
-                    ])
-                    ->all();
+                    return [
+                        'number' => $index + 1,
+                        'full_name' => $student->full_name,
+                        'class' => $student->schoolClass?->title ?? '',
+                        'by_date' => $byDate,
+                        'total' => array_sum($byDate),
+                    ];
+                });
 
-                return [
-                    'number' => $index + 1,
-                    'full_name' => $student->full_name,
-                    'class' => $student->schoolClass?->title ?? '',
-                    'by_date' => $byDate,
-                    'by_supplier' => $bySupplier,
-                    'total' => array_sum($byDate),
-                ];
-            });
-
-        return ['rows' => $rows, 'suppliers' => $suppliers];
+            return ['supplier' => $supplier, 'rows' => $rows];
+        });
     }
 }

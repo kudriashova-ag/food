@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Orders\Pages;
 
-use App\Exports\OrdersByPeriodExport;
+use App\Exports\OrdersBySupplierExport;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Services\Reports\OrderExportService;
 use Carbon\CarbonImmutable;
@@ -24,27 +24,27 @@ class ListOrders extends ListRecords
             static::exportAction(
                 name: 'exportPupils',
                 label: 'Експорт: учні',
-                report: fn (CarbonImmutable $from, CarbonImmutable $to) => app(OrderExportService::class)->pupilReport($from, $to),
+                reports: fn (CarbonImmutable $from, CarbonImmutable $to) => app(OrderExportService::class)->pupilReportsBySupplier($from, $to),
                 filenamePrefix: 'zamovlennia-uchni',
             ),
             static::exportAction(
                 name: 'exportTeachers',
                 label: 'Експорт: вчителі',
-                report: fn (CarbonImmutable $from, CarbonImmutable $to) => app(OrderExportService::class)->teacherReport($from, $to),
+                reports: fn (CarbonImmutable $from, CarbonImmutable $to) => app(OrderExportService::class)->teacherReportsBySupplier($from, $to),
                 filenamePrefix: 'zamovlennia-vchyteli',
             ),
         ];
     }
 
-    /** @param callable(CarbonImmutable, CarbonImmutable): array{rows: \Illuminate\Support\Collection, suppliers: \Illuminate\Support\Collection} $report */
-    private static function exportAction(string $name, string $label, callable $report, string $filenamePrefix): Action
+    /** @param callable(CarbonImmutable, CarbonImmutable): \Illuminate\Support\Collection $reports */
+    private static function exportAction(string $name, string $label, callable $reports, string $filenamePrefix): Action
     {
         return Action::make($name)
             ->label($label)
             ->icon('heroicon-o-arrow-down-tray')
             ->color('gray')
             ->modalHeading($label)
-            ->modalDescription('За замовчуванням — наступний робочий тиждень, дати можна змінити.')
+            ->modalDescription('За замовчуванням — наступний робочий тиждень, дати можна змінити. Кожен постачальник — на своєму аркуші.')
             ->modalSubmitActionLabel('Завантажити')
             ->schema([
                 DatePicker::make('from')
@@ -62,13 +62,11 @@ class ListOrders extends ListRecords
                     ->afterOrEqual('from')
                     ->default(static::nextWeekEnd()->toDateString()),
             ])
-            ->action(function (array $data) use ($report, $filenamePrefix): BinaryFileResponse {
+            ->action(function (array $data) use ($reports, $filenamePrefix): BinaryFileResponse {
                 $from = CarbonImmutable::parse($data['from'])->startOfDay();
                 $to = CarbonImmutable::parse($data['to'])->startOfDay();
 
-                $result = $report($from, $to);
-
-                $export = new OrdersByPeriodExport($result['rows'], $result['suppliers'], $from, $to);
+                $export = new OrdersBySupplierExport($reports($from, $to), $from, $to);
 
                 $path = sprintf('exports/%s.xlsx', Str::uuid());
                 $export->store($path, 'local');
