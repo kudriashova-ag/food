@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=Source+Sans+3:wght@400;500;600;700&display=swap">
 <style>
   :root {
-    --bg: #faf9f5;
+    --bg: #ffffff;
     --surface: #ffffff;
     --surface-2: #f2f0e8;
     --ink: #2b2a26;
@@ -24,46 +24,6 @@
     --danger: #a13f3f;
     --danger-soft: #f6e6e3;
     --focus: #2f6f8f;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #1c1b17;
-      --surface: #232219;
-      --surface-2: #2a2820;
-      --ink: #f1efe6;
-      --ink-soft: #d8d5c8;
-      --muted: #a6a290;
-      --border: #3a3829;
-      --accent: #7cae86;
-      --accent-ink: #dcecdd;
-      --accent-soft: #2a3a2c;
-      --accent-soft-border: #3d5641;
-      --warn: #e0b268;
-      --warn-soft: #3a331f;
-      --danger: #e0938a;
-      --danger-soft: #3d2624;
-      --focus: #7fc4e8;
-    }
-  }
-
-  :root[data-theme="dark"] {
-    --bg: #1c1b17;
-    --surface: #232219;
-    --surface-2: #2a2820;
-    --ink: #f1efe6;
-    --ink-soft: #d8d5c8;
-    --muted: #a6a290;
-    --border: #3a3829;
-    --accent: #7cae86;
-    --accent-ink: #dcecdd;
-    --accent-soft: #2a3a2c;
-    --accent-soft-border: #3d5641;
-    --warn: #e0b268;
-    --warn-soft: #3a331f;
-    --danger: #e0938a;
-    --danger-soft: #3d2624;
-    --focus: #7fc4e8;
   }
 
   * { box-sizing: border-box; }
@@ -143,17 +103,6 @@
     font-size: 1.05rem;
     margin: 0;
   }
-
-  .masthead-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 18px;
-    margin-block-start: 18px;
-    font-size: 13.5px;
-    color: var(--muted);
-  }
-
-  .masthead-meta span { white-space: nowrap; }
 
   /* ---------- TOC ---------- */
 
@@ -572,13 +521,6 @@
       Покроковий путівник: від першого відкриття меню до скасування страви,
       якщо плани змінилися. Реєстрація не потрібна аж до підтвердження замовлення.
     </p>
-    <div class="masthead-meta">
-      <span>11 кроків</span>
-      <span>·</span>
-      <span>Читання ≈ 6 хв</span>
-      <span>·</span>
-      <span>Оновлено вересень 2026</span>
-    </div>
   </header>
 
   <details class="toc-mobile">
