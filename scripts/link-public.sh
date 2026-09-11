@@ -43,6 +43,14 @@ for item in .htaccess favicon.ico robots.txt; do
     fi
 done
 
+# Окремі html-сторінки в корені (інструкції тощо) — теж копії, не посилання,
+# щоб їх було видно списком і легко прибрати вручну, якщо застаріють.
+for file in "${APP_DIR}"/public_html/*.html; do
+    [ -f "$file" ] || continue
+    cp "$file" "${PUBLIC_DIR}/$(basename "$file")"
+    echo "✓ $(basename "$file")"
+done
+
 # --- Папки, які їдуть із репозиторієм ---
 # Посилання, а не копії: після git pull новий вміст підхоплюється сам.
 # build — зібрані асети, images — логотип школи та інша статика.
