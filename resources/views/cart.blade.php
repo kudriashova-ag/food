@@ -28,33 +28,33 @@
     @forelse ($groups as $group)
         <section class="card mb-4 overflow-hidden">
             <header class="flex items-center gap-2.5 border-b border-ink-100 bg-ink-50/60 px-4 py-3">
-                <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-100 text-sm font-bold text-deep-700">
-                    {{ mb_substr($group['supplier']->name, 0, 1) }}
-                </span>
-                <h2 class="font-semibold">{{ $group['supplier']->name }}</h2>
+                <h2 class="font-semibold">{{ $group['date']->translatedFormat('l, d.m') }}</h2>
             </header>
 
-            @foreach ($group['dates'] as $date)
+            @foreach ($group['suppliers'] as $supplierGroup)
                 <div class="border-b border-ink-100 px-4 py-3.5 last:border-0">
                     <div class="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
-                        <h3 class="text-sm font-semibold">{{ $date['date']->translatedFormat('l, d.m') }}</h3>
+                        <h3 class="text-sm font-semibold text-ink-500">{{ $supplierGroup['supplier']->name }}</h3>
 
                         <span @class([
                                   'text-xs',
-                                  'text-ink-500' => $date['deadline']->orderingOpen(),
-                                  'font-medium text-red-600' => ! $date['deadline']->orderingOpen(),
+                                  'text-ink-500' => $supplierGroup['deadline']->orderingOpen(),
+                                  'font-medium text-red-600' => ! $supplierGroup['deadline']->orderingOpen(),
                               ])>
-                            {{ $date['deadline']->orderingOpen()
-                                ? $date['deadline']->orderLabel()
+                            {{ $supplierGroup['deadline']->orderingOpen()
+                                ? $supplierGroup['deadline']->orderLabel()
                                 : 'Приймання завершено' }}
                         </span>
                     </div>
 
                     <ul class="space-y-2.5">
-                        @foreach ($date['items'] as $item)
+                        @foreach ($supplierGroup['items'] as $item)
                             <li class="flex items-center gap-3">
                                 <div class="min-w-0 flex-1">
-                                    <div class="truncate text-sm font-medium">{{ $item->displayName() }}</div>
+                                    <div class="truncate text-sm font-medium">
+                                        {{ $item->displayName() }}
+                                        <span class="text-xs font-normal text-ink-400">({{ $item->supplier->name }})</span>
+                                    </div>
                                     <div class="text-xs text-ink-500 tabular-nums">
                                         @if ($item->menuSection?->type === \App\Enums\MenuSectionType::Complex)
                                             {{ number_format((float) $item->menuSection->price, 2, ',', ' ') }} грн (комплекс)
@@ -95,15 +95,15 @@
                             </li>
                         @endforeach
                     </ul>
-
-                    <div class="mt-2.5 text-right text-sm text-ink-500">
-                        Разом за день:
-                        <span class="font-semibold text-ink-900 tabular-nums">
-                            {{ number_format($date['total'], 2, ',', ' ') }} грн
-                        </span>
-                    </div>
                 </div>
             @endforeach
+
+            <div class="bg-ink-50/60 px-4 py-3 text-right text-sm text-ink-500">
+                Разом за день:
+                <span class="font-semibold text-ink-900 tabular-nums">
+                    {{ number_format($group['total'], 2, ',', ' ') }} грн
+                </span>
+            </div>
         </section>
     @empty
         <div class="card flex flex-col items-center gap-3 p-10 text-center">

@@ -331,31 +331,34 @@ class CartService
     }
 
     /**
-     * Вміст кошика для показу: постачальник → дата → позиції.
+     * Вміст кошика для показу: дата → постачальники → позиції.
      *
-     * @return Collection<int, array{supplier: \App\Models\Supplier, dates: Collection<string, array{date: CarbonImmutable, items: Collection<int, CartItem>, total: float, deadline: \App\Services\Deadlines\Deadlines}>, total: float}>
+     * Постачальників на один день може бути кілька — кожен зі своїм дедлайном,
+     * тож усередині дня позиції додатково розбиті по постачальнику.
+     *
+     * @return Collection<int, array{date: CarbonImmutable, suppliers: Collection<int, array{supplier: \App\Models\Supplier, items: Collection<int, CartItem>, deadline: \App\Services\Deadlines\Deadlines}>, total: float}>
      */
     public function grouped(?Cart $cart): Collection
     {
         $items = $this->items($cart, ['dish', 'supplier', 'menuSection', 'menuSection.sectionDishes.dish'])
-            ->sortBy(['supplier_id', 'service_date']);
+            ->sortBy(['service_date', 'supplier_id']);
 
         return $items
-            ->groupBy('supplier_id')
-            ->map(function (Collection $supplierItems): array {
-                $dates = $supplierItems
-                    ->groupBy(fn (CartItem $item): string => $item->service_date->toDateString())
-                    ->map(fn (Collection $dateItems, string $date): array => [
-                        'date' => CarbonImmutable::parse($date),
-                        'items' => $dateItems->values(),
-                        'total' => $dateItems->sum(fn (CartItem $item): float => $item->subtotal()),
-                        'deadline' => $this->deadlines->for($dateItems->first()->supplier_id, $date),
-                    ]);
+            ->groupBy(fn (CartItem $item): string => $item->service_date->toDateString())
+            ->map(function (Collection $dateItems, string $date): array {
+                $suppliers = $dateItems
+                    ->groupBy('supplier_id')
+                    ->map(fn (Collection $supplierItems): array => [
+                        'supplier' => $supplierItems->first()->supplier,
+                        'items' => $supplierItems->values(),
+                        'deadline' => $this->deadlines->for($supplierItems->first()->supplier_id, $date),
+                    ])
+                    ->values();
 
                 return [
-                    'supplier' => $supplierItems->first()->supplier,
-                    'dates' => $dates,
-                    'total' => $supplierItems->sum(fn (CartItem $item): float => $item->subtotal()),
+                    'date' => CarbonImmutable::parse($date),
+                    'suppliers' => $suppliers,
+                    'total' => $dateItems->sum(fn (CartItem $item): float => $item->subtotal()),
                 ];
             })
             ->values();
