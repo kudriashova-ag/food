@@ -65,6 +65,18 @@ class AdminPanelTest extends TestCase
         $this->assertTrue(Hash::check('parol12345', $account->password));
     }
 
+    public function test_admin_edits_supplier_payment_details(): void
+    {
+        $supplier = Supplier::create(['name' => 'Смачно', 'slug' => 'smachno']);
+
+        Livewire::test(\App\Filament\Resources\Suppliers\Pages\EditSupplier::class, ['record' => $supplier->getRouteKey()])
+            ->fillForm(['payment_details' => "ФОП Іваненко\nІВАН UA123456789\nЄДРПОУ 12345678"])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame("ФОП Іваненко\nІВАН UA123456789\nЄДРПОУ 12345678", $supplier->fresh()->payment_details);
+    }
+
     public function test_student_is_created_with_a_user_account(): void
     {
         $class = SchoolClass::create(['grade' => 5, 'letter' => 'А', 'academic_year' => 2026]);

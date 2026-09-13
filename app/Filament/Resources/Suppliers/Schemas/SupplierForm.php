@@ -64,6 +64,12 @@ class SupplierForm
                     ->schema([
                         TextInput::make('contact_person')->label('Контактна особа')->maxLength(255),
                         TextInput::make('phone')->label('Телефон')->tel()->maxLength(32),
+
+                        Textarea::make('payment_details')
+                            ->label('Реквізити для оплати')
+                            ->rows(4)
+                            ->columnSpanFull()
+                            ->helperText('Рахунок, ЄДРПОУ тощо — постачальник теж може редагувати цей текст у себе в кабінеті.'),
                     ]),
 
                 Section::make('Обліковий запис для входу')

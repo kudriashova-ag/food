@@ -19,6 +19,7 @@ class Supplier extends Model
         'description',
         'contact_person',
         'phone',
+        'payment_details',
         'report_emails',
         'digest_time',
         'digest_enabled',
@@ -119,7 +120,7 @@ class Supplier extends Model
 
     protected function activityAttributes(): array
     {
-        return ['name', 'is_visible', 'contact_person', 'phone', 'digest_time', 'digest_enabled'];
+        return ['name', 'is_visible', 'contact_person', 'phone', 'payment_details', 'digest_time', 'digest_enabled'];
     }
 
     protected static function activityLabel(): string

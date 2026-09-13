@@ -8,6 +8,7 @@ use App\Services\Telegram\TelegramClient;
 use App\Services\Telegram\TelegramLinkService;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
 use Filament\Forms\Components\Toggle;
@@ -49,6 +50,7 @@ class NotificationSettings extends Page implements HasForms
             'digest_time' => substr((string) $supplier->digest_time, 0, 5),
             'report_emails' => $supplier->report_emails,
             'cancellation_alerts_enabled' => $supplier->cancellation_alerts_enabled,
+            'payment_details' => $supplier->payment_details,
         ]);
     }
 
@@ -91,6 +93,15 @@ class NotificationSettings extends Page implements HasForms
                             ->label('Повідомляти про скасування після зведення')
                             ->helperText('Скасування до зведення просто враховуються в його цифрах — окреме повідомлення не йде.'),
                     ]),
+
+                Section::make('Реквізити для оплати')
+                    ->description('Бачить адміністратор школи; редагувати можете і ви, і школа.')
+                    ->schema([
+                        Textarea::make('payment_details')
+                            ->hiddenLabel()
+                            ->rows(4)
+                            ->placeholder('Рахунок, ЄДРПОУ тощо'),
+                    ]),
             ])
             ->statePath('data');
     }
@@ -104,6 +115,7 @@ class NotificationSettings extends Page implements HasForms
             'digest_time' => $state['digest_time'] ?: '18:00',
             'report_emails' => $state['report_emails'] ?: null,
             'cancellation_alerts_enabled' => (bool) $state['cancellation_alerts_enabled'],
+            'payment_details' => $state['payment_details'] ?: null,
         ]);
 
         Notification::make()->title('Налаштування збережено')->success()->send();
