@@ -182,6 +182,24 @@ class AdminPanelTest extends TestCase
             ->assertSee('Скасувати все замовлення');
     }
 
+    /**
+     * Регрес: кнопку скасування рядка рендерили через ->arguments([...]),
+     * що заповнює лише внутрішній стан дії, а не JS-обробник кліку — Filament
+     * бере аргументи для wire:click з __invoke(), тому record ніколи не
+     * потрапляв у клік, і кнопка нічого не робила при реальному натисканні.
+     */
+    public function test_cancel_line_button_embeds_the_record_id_in_its_click_handler(): void
+    {
+        $line = $this->orderLine();
+
+        $html = Livewire::test(ViewOrder::class, ['record' => $line->order_id])->html();
+
+        $this->assertStringContainsString(
+            "mountAction('cancelLine', JSON.parse('{\\u0022record\\u0022:{$line->id}}'))",
+            $html,
+        );
+    }
+
     public function test_admin_cancels_a_line_with_a_reason(): void
     {
         $line = $this->orderLine();

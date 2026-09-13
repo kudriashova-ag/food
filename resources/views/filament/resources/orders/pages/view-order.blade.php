@@ -88,7 +88,7 @@
                                             </td>
                                             <td class="px-4 py-2.5 text-right">
                                                 @if (! $line->isCancelled())
-                                                    {{ $this->cancelLineAction()->arguments(['record' => $line->id]) }}
+                                                    {{ ($this->cancelLineAction())(['record' => $line->id]) }}
                                                 @endif
                                             </td>
                                         </tr>
