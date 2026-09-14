@@ -59,7 +59,7 @@ class OrderPlaced extends Notification implements ShouldQueue
         foreach ($this->paymentGroups($order) as $group) {
             $message->line('');
             $message->line(sprintf(
-                'Сума для оплати %s: %s грн',
+                '**Сума для оплати %s: %s грн**',
                 $group['supplier']->name,
                 number_format($group['total'], 2, ',', ' '),
             ));
@@ -95,7 +95,7 @@ class OrderPlaced extends Notification implements ShouldQueue
         $text .= "\nСума: ".number_format((float) $order->total_amount, 2, ',', ' ').' грн'."\n";
 
         foreach ($this->paymentGroups($order) as $group) {
-            $text .= "\nСума для оплати {$group['supplier']->name}: ".number_format($group['total'], 2, ',', ' ')." грн\n";
+            $text .= "\n<b>Сума для оплати {$group['supplier']->name}: ".number_format($group['total'], 2, ',', ' ')." грн</b>\n";
 
             if (filled($group['supplier']->payment_details)) {
                 $text .= $group['supplier']->payment_details."\n";

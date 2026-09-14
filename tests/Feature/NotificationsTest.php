@@ -276,7 +276,7 @@ class NotificationsTest extends TestCase
         $mail = (new OrderPlaced($order))->toMail($this->user);
         $text = implode("\n", [...$mail->introLines, ...$mail->outroLines]);
 
-        $this->assertStringContainsString('Сума для оплати Смачно: 60,00 грн', $text);
+        $this->assertStringContainsString('**Сума для оплати Смачно: 60,00 грн**', $text);
         $this->assertStringContainsString('ФОП Ярошенко Ольга Олегівна', $text);
         $this->assertStringContainsString('IBAN UA833052990000026007000218177', $text);
         $this->assertStringContainsString('Призначення платежу: Іваненко Марія, 5-А, оплата за 17.08', $text);
@@ -386,7 +386,7 @@ class NotificationsTest extends TestCase
 
         $text = (new OrderPlaced($order))->toTelegram($this->user);
 
-        $this->assertStringContainsString('Сума для оплати Смачно: 60,00 грн', $text);
+        $this->assertStringContainsString('<b>Сума для оплати Смачно: 60,00 грн</b>', $text);
         $this->assertStringContainsString('ФОП Ярошенко Ольга Олегівна', $text);
         $this->assertStringContainsString('Призначення платежу: Іваненко Марія, 5-А, оплата за 17.08', $text);
     }
