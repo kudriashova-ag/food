@@ -26,6 +26,15 @@ class StudentForm
                             ->maxLength(255)
                             ->columnSpanFull(),
 
+                        Toggle::make('is_teacher')
+                            ->label('Вчитель')
+                            ->helperText('Вчитель не належить до класу.')
+                            ->live()
+                            ->afterStateUpdated(fn ($state, callable $set) => $state
+                                ? $set('school_class_id', null)
+                                : null)
+                            ->columnSpanFull(),
+
                         Select::make('school_class_id')
                             ->label('Клас')
                             ->options(fn (): array => SchoolClass::query()
@@ -35,7 +44,8 @@ class StudentForm
                                 ->mapWithKeys(fn (SchoolClass $class): array => [$class->id => $class->title])
                                 ->all())
                             ->searchable()
-                            ->required(),
+                            ->hidden(fn (callable $get): bool => (bool) $get('is_teacher'))
+                            ->required(fn (callable $get): bool => ! $get('is_teacher')),
 
                         Toggle::make('is_active')
                             ->label('Активний')

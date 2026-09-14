@@ -98,6 +98,26 @@ class AdminPanelTest extends TestCase
         $this->assertSame(UserRole::Student, $student->user->role);
     }
 
+    public function test_teacher_is_created_without_a_class(): void
+    {
+        Livewire::test(CreateStudent::class)
+            ->fillForm([
+                'full_name' => 'Коваленко Ольга',
+                'is_teacher' => true,
+                'is_active' => true,
+                'login' => 'kovalenko.olha',
+                'password' => 'parol123',
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $teacher = Student::query()->firstOrFail();
+
+        $this->assertNull($teacher->school_class_id);
+        $this->assertTrue($teacher->isTeacher());
+        $this->assertSame('kovalenko.olha', $teacher->user->login);
+    }
+
     public function test_students_can_be_sorted_by_class(): void
     {
         // «Клас» — акцесор із grade і letter: сортування за ним падало на ORDER BY.

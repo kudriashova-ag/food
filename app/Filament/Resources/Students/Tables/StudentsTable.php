@@ -33,6 +33,7 @@ class StudentsTable
 
                 TextColumn::make('schoolClass.title')
                     ->label('Клас')
+                    ->placeholder('Вчитель')
                     // title — акцесор із grade і letter, у базі такої колонки немає.
                     // Сортуємо підзапитом за самими колонками: join тут ризикований,
                     // бо на повторному сортуванні додався б удруге.
@@ -80,6 +81,17 @@ class StudentsTable
                         ->get()
                         ->mapWithKeys(fn (SchoolClass $class): array => [$class->id => $class->title])
                         ->all()),
+
+                TernaryFilter::make('is_teacher')
+                    ->label('Тип')
+                    ->placeholder('Учні та вчителі')
+                    ->trueLabel('Тільки вчителі')
+                    ->falseLabel('Тільки учні')
+                    ->queries(
+                        true: fn (Builder $query): Builder => $query->teachers(),
+                        false: fn (Builder $query): Builder => $query->pupils(),
+                        blank: fn (Builder $query): Builder => $query,
+                    ),
 
                 TernaryFilter::make('is_active')
                     ->label('Активність')

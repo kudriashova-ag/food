@@ -18,6 +18,7 @@ class EditStudent extends EditRecord
 
         $data['login'] = $student->user?->login;
         $data['email'] = $student->user?->email;
+        $data['is_teacher'] = $student->isTeacher();
 
         return $data;
     }
@@ -35,7 +36,7 @@ class EditStudent extends EditRecord
 
         $record->update([
             'full_name' => $data['full_name'],
-            'school_class_id' => $data['school_class_id'],
+            'school_class_id' => ($data['is_teacher'] ?? false) ? null : $data['school_class_id'],
             'is_active' => $data['is_active'] ?? true,
             'notes' => $data['notes'] ?? null,
         ]);
