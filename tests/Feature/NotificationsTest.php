@@ -267,6 +267,130 @@ class NotificationsTest extends TestCase
         $this->assertSame($this->student->id, $log->student_id);
     }
 
+    public function test_order_placed_mail_lists_payment_per_supplier_with_details(): void
+    {
+        $this->supplier->update(['payment_details' => "ФОП Ярошенко Ольга Олегівна\nIBAN UA833052990000026007000218177"]);
+
+        $order = $this->placeOrder();
+
+        $mail = (new OrderPlaced($order))->toMail($this->user);
+        $text = implode("\n", [...$mail->introLines, ...$mail->outroLines]);
+
+        $this->assertStringContainsString('Сума для оплати Смачно: 60,00 грн', $text);
+        $this->assertStringContainsString('ФОП Ярошенко Ольга Олегівна', $text);
+        $this->assertStringContainsString('IBAN UA833052990000026007000218177', $text);
+        $this->assertStringContainsString('Призначення платежу: Іваненко Марія, 5-А, оплата за 17.08', $text);
+    }
+
+    public function test_order_placed_mail_uses_teacher_wording_without_a_class(): void
+    {
+        $teacherUser = User::create([
+            'name' => 'Коваленко Ольга',
+            'login' => 'kovalenko.olha',
+            'email' => 'teacher@example.com',
+            'password' => 'secret',
+            'role' => UserRole::Student,
+        ]);
+
+        $teacher = Student::create([
+            'user_id' => $teacherUser->id,
+            'full_name' => 'Коваленко Ольга',
+            'school_class_id' => null,
+        ]);
+
+        $cart = app(CartService::class);
+        $cart->add($cart->for($teacher), $this->complex, null);
+        $order = app(OrderService::class)->placeFromCart($teacher);
+
+        $mail = (new OrderPlaced($order))->toMail($teacherUser);
+        $text = implode("\n", [...$mail->introLines, ...$mail->outroLines]);
+
+        $this->assertStringContainsString('Призначення платежу: Коваленко Ольга, вчитель, оплата за 17.08', $text);
+    }
+
+    public function test_order_placed_mail_shows_a_date_range_for_several_days_from_the_same_supplier(): void
+    {
+        $secondDate = '2026-08-24';   // наступний понеділок
+
+        $menuDay = MenuDay::create([
+            'supplier_id' => $this->supplier->id,
+            'date' => $secondDate,
+            'is_working_day' => true,
+            'published_at' => now(),
+        ]);
+        $complex = $menuDay->sections()->create([
+            'type' => MenuSectionType::Complex,
+            'title' => 'Комплекс №1',
+            'price' => 60,
+            'sort' => 0,
+        ]);
+        $complex->sectionDishes()->create(['dish_id' => $this->cutlet->id, 'sort' => 0]);
+
+        $cart = app(CartService::class);
+        $cart->add($cart->for($this->student), $this->complex, null);
+        $cart->add($cart->for($this->student), $complex, null);
+        $order = app(OrderService::class)->placeFromCart($this->student);
+
+        $mail = (new OrderPlaced($order))->toMail($this->user);
+        $text = implode("\n", [...$mail->introLines, ...$mail->outroLines]);
+
+        $this->assertStringContainsString('Сума для оплати Смачно: 120,00 грн', $text);
+        $this->assertStringContainsString('Призначення платежу: Іваненко Марія, 5-А, оплата за 17.08-24.08', $text);
+    }
+
+    public function test_order_placed_mail_splits_payment_by_supplier(): void
+    {
+        $otherSupplier = Supplier::create(['name' => 'Домашня кухня', 'slug' => 'domashnya']);
+
+        DeadlineRule::create([
+            'supplier_id' => $otherSupplier->id,
+            'weekday' => 1,
+            'order_offset_days' => 1,
+            'order_time' => '09:00:00',
+            'cancel_offset_days' => 1,
+            'cancel_time' => '09:00:00',
+        ]);
+
+        $otherDish = Dish::create(['supplier_id' => $otherSupplier->id, 'name' => 'Сирники', 'price' => 40]);
+
+        $otherMenuDay = MenuDay::create([
+            'supplier_id' => $otherSupplier->id,
+            'date' => self::SERVICE_DATE,
+            'is_working_day' => true,
+            'published_at' => now(),
+        ]);
+        $otherExtras = $otherMenuDay->sections()->create([
+            'type' => MenuSectionType::Extra,
+            'title' => 'Додатково',
+            'sort' => 0,
+        ]);
+        $otherExtras->sectionDishes()->create(['dish_id' => $otherDish->id, 'sort' => 0]);
+
+        $cart = app(CartService::class);
+        $cart->add($cart->for($this->student), $this->complex, null);
+        $cart->add($cart->for($this->student), $otherExtras, $otherDish->id);
+        $order = app(OrderService::class)->placeFromCart($this->student);
+
+        $mail = (new OrderPlaced($order))->toMail($this->user);
+        $text = implode("\n", [...$mail->introLines, ...$mail->outroLines]);
+
+        $this->assertStringContainsString('Сума для оплати Домашня кухня: 40,00 грн', $text);
+        $this->assertStringContainsString('Сума для оплати Смачно: 60,00 грн', $text);
+    }
+
+    public function test_order_placed_telegram_message_also_lists_payment_per_supplier(): void
+    {
+        $this->supplier->update(['payment_details' => 'ФОП Ярошенко Ольга Олегівна']);
+
+        $order = $this->placeOrder();
+
+        $text = (new OrderPlaced($order))->toTelegram($this->user);
+
+        $this->assertStringContainsString('Сума для оплати Смачно: 60,00 грн', $text);
+        $this->assertStringContainsString('ФОП Ярошенко Ольга Олегівна', $text);
+        $this->assertStringContainsString('Призначення платежу: Іваненко Марія, 5-А, оплата за 17.08', $text);
+    }
+
     private function placeOrder(): \App\Models\Order
     {
         $cart = app(CartService::class);
