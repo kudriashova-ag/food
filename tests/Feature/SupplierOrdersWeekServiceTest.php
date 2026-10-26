@@ -54,6 +54,19 @@ class SupplierOrdersWeekServiceTest extends TestCase
         $this->assertSame(['Перше', 'Напій', 'Перше'], $titles);
     }
 
+    public function test_columns_go_first_course_then_complex_then_extras(): void
+    {
+        $student = $this->pupil('Іваненко Марія', 5, 'А');
+
+        $this->line($student, self::FROM, MenuSectionType::Extra, 'Напій', 'Мохіто', 35);
+        $this->line($student, self::FROM, MenuSectionType::Complex, 'Комплекс №1', 'Комплекс №1: Салат, Котлета', 230);
+        $this->line($student, self::FROM, MenuSectionType::Choice, 'Перше', 'Борщ', 45);
+
+        $report = $this->service->build($this->supplier, self::FROM, self::TO);
+
+        $this->assertSame(['Перше', 'Комплекс №1', 'Напій'], $report['columns']->pluck('section_title')->all());
+    }
+
     public function test_complex_cell_says_just_complex_and_subtitle_holds_the_composition(): void
     {
         $student = $this->pupil('Іваненко Марія', 5, 'А');

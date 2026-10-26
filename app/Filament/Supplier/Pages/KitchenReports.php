@@ -2,7 +2,6 @@
 
 namespace App\Filament\Supplier\Pages;
 
-use App\Exports\KitchenReportExport;
 use App\Exports\SupplierOrdersWeekExport;
 use App\Models\Supplier;
 use App\Services\Reports\KitchenReportService;
@@ -125,18 +124,25 @@ class KitchenReports extends Page implements HasForms
                 $from = CarbonImmutable::parse($data['from'])->startOfDay();
                 $to = CarbonImmutable::parse($data['to'])->startOfDay();
 
-                $report = app(SupplierOrdersWeekService::class)->build($this->supplier(), $from, $to);
-
-                $export = new SupplierOrdersWeekExport($report['columns'], $report['rows']);
-
-                $path = sprintf('exports/%s.xlsx', Str::uuid());
-                $export->store($path, 'local');
-
-                return response()->download(
-                    Storage::disk('local')->path($path),
+                return $this->downloadOrders(
+                    $from,
+                    $to,
                     sprintf('zamovlennia-%s-%s-%s.xlsx', $this->supplier()->slug, $from->toDateString(), $to->toDateString()),
-                )->deleteFileAfterSend();
+                );
             });
+    }
+
+    /** Звіт «хто що замовив» за період — той самий для тижня й для одного дня. */
+    private function downloadOrders(CarbonImmutable $from, CarbonImmutable $to, string $fileName): BinaryFileResponse
+    {
+        $report = app(SupplierOrdersWeekService::class)->build($this->supplier(), $from, $to);
+
+        $export = new SupplierOrdersWeekExport($report['columns'], $report['rows']);
+
+        $path = sprintf('exports/%s.xlsx', Str::uuid());
+        $export->store($path, 'local');
+
+        return response()->download(Storage::disk('local')->path($path), $fileName)->deleteFileAfterSend();
     }
 
     /** Понеділок наступного тижня — явно, без покладання на дефолтну локаль. */
@@ -150,15 +156,16 @@ class KitchenReports extends Page implements HasForms
         return static::nextWeekStart()->addDays(4);
     }
 
+    /** Той самий звіт, що й «Замовлення за тиждень», але тільки на вибрану дату харчування. */
     private function downloadExcel(): BinaryFileResponse
     {
-        $export = new KitchenReportExport(
-            $this->supplier(),
-            $this->getDate(),
-            app(KitchenReportService::class),
-        );
+        $date = $this->getDate()->startOfDay();
 
-        return $export->download($this->fileName('xlsx'));
+        return $this->downloadOrders(
+            $date,
+            $date,
+            sprintf('zamovlennia-%s-%s.xlsx', $this->supplier()->slug, $date->toDateString()),
+        );
     }
 
     private function downloadPdf(): Response

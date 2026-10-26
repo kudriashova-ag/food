@@ -53,7 +53,7 @@ class SupplierOrdersWeekService
 
     /**
      * Колонки: унікальні пари (дата, назва секції), впорядковані за датою
-     * й типовим порядком секцій у меню (комплекс → вибір → додаткові).
+     * й порядком секцій (перше → комплекс → додаткові).
      *
      * @param  Collection<int, OrderLine>  $lines
      * @return Collection<int, array{key: string, date: CarbonImmutable, section_title: string, section_type: MenuSectionType|null, price: float|null, is_complex: bool, complex_dishes: string|null}>
@@ -126,12 +126,12 @@ class SupplierOrdersWeekService
         return $line->section_title ?? $line->dish_name ?? '';
     }
 
-    /** Типовий порядок секцій у меню: комплекс → перше (вибір) → додаткові. */
+    /** Порядок секцій у звіті: перше (вибір) → комплекс → додаткові. */
     private function sectionOrder(?MenuSectionType $type): int
     {
         return match ($type) {
-            MenuSectionType::Complex => 0,
-            MenuSectionType::Choice => 1,
+            MenuSectionType::Choice => 0,
+            MenuSectionType::Complex => 1,
             MenuSectionType::Extra => 2,
             default => 3,
         };

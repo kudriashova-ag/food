@@ -63,14 +63,14 @@ class SupplierReportsPageTest extends TestCase
             ->assertDontSee('Сирники');
     }
 
-    public function test_excel_export_returns_a_file(): void
+    public function test_excel_export_is_the_orders_report_for_the_chosen_day(): void
     {
         $this->line('Іваненко Марія', 5, 'А', 'Куряча котлета', 1);
 
         Livewire::test(KitchenReports::class)
             ->set('data.date', self::SERVICE_DATE)
             ->callAction('excel')
-            ->assertFileDownloaded('kuhnia-smachno-2026-08-17.xlsx');
+            ->assertFileDownloaded('zamovlennia-smachno-2026-08-17.xlsx');
     }
 
     public function test_pdf_export_returns_a_file(): void
