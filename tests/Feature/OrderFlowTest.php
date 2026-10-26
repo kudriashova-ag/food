@@ -151,14 +151,16 @@ class OrderFlowTest extends TestCase
         $this->assertSame('60.00', $order->fresh()->total_amount);
     }
 
-    public function test_quantity_is_free_for_any_dish(): void
+    public function test_extra_dish_is_always_one_portion(): void
     {
+        // Додаткову страву замовляють галочкою: кількість понад 1 відкидається.
         $this->cart->add($this->cartModel, $this->extras, $this->water->id, quantity: 3);
+        $this->cart->add($this->cartModel, $this->extras, $this->water->id);
 
         $order = $this->orders->placeFromCart($this->student);
 
-        $this->assertSame(3, $order->lines()->firstOrFail()->quantity);
-        $this->assertSame('45.00', $order->total_amount);
+        $this->assertSame(1, $order->lines()->firstOrFail()->quantity);
+        $this->assertSame('15.00', $order->total_amount);
     }
 
     public function test_choice_section_keeps_only_one_variant(): void
@@ -188,12 +190,12 @@ class OrderFlowTest extends TestCase
     public function test_order_without_a_main_dish_is_allowed(): void
     {
         // ТЗ, п. 17.2: можна замовити тільки воду.
-        $this->cart->add($this->cartModel, $this->extras, $this->water->id, quantity: 2);
+        $this->cart->add($this->cartModel, $this->extras, $this->water->id);
 
         $order = $this->orders->placeFromCart($this->student);
 
         $this->assertCount(1, $order->lines);
-        $this->assertSame('30.00', $order->total_amount);
+        $this->assertSame('15.00', $order->total_amount);
     }
 
     public function test_dish_from_another_section_is_rejected(): void
@@ -339,7 +341,7 @@ class OrderFlowTest extends TestCase
     public function test_cancelling_one_line_keeps_the_rest_active(): void
     {
         $this->cart->add($this->cartModel, $this->complex, null);
-        $this->cart->add($this->cartModel, $this->extras, $this->water->id, quantity: 2);
+        $this->cart->add($this->cartModel, $this->extras, $this->water->id);
 
         $order = $this->orders->placeFromCart($this->student);
         // Комплекс — рядок з dish_id = null, шукаємо по menu_section_id.
@@ -348,14 +350,15 @@ class OrderFlowTest extends TestCase
         $this->cancellations->cancelLine($complexLine, $this->user);
 
         $this->assertSame(OrderLineStatus::Cancelled, $complexLine->fresh()->status);
-        $this->assertSame('30.00', $order->fresh()->total_amount);
+        $this->assertSame('15.00', $order->fresh()->total_amount);
         $this->assertCount(1, $order->lines()->active()->get());
     }
 
     public function test_partial_quantity_can_be_cancelled(): void
     {
-        // ТЗ, п. 17.3: замовлено 3 води — скасувати можна одну.
-        $this->cart->add($this->cartModel, $this->extras, $this->water->id, quantity: 3);
+        // ТЗ, п. 17.3: замовлено 3 води — скасувати можна одну. Нові кошики
+        // кладуть одну порцію, але кошик, зібраний до обмеження, ще може мати кілька.
+        $this->cart->add($this->cartModel, $this->extras, $this->water->id)->update(['quantity' => 3]);
 
         $order = $this->orders->placeFromCart($this->student);
         $line = $order->lines()->firstOrFail();
@@ -370,7 +373,7 @@ class OrderFlowTest extends TestCase
     public function test_cancelling_a_day_removes_every_line_of_that_supplier(): void
     {
         $this->cart->add($this->cartModel, $this->complex, null);
-        $this->cart->add($this->cartModel, $this->extras, $this->water->id, quantity: 2);
+        $this->cart->add($this->cartModel, $this->extras, $this->water->id);
 
         $order = $this->orders->placeFromCart($this->student);
 

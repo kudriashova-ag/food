@@ -14,7 +14,7 @@
 
     @if ($type === \App\Enums\MenuSectionType::Complex)
         {{-- Комплекс: фото, назва й вага кожної страви в сітці по 2 в ряд,
-             вибору немає — лише кількість порцій набору. --}}
+             вибору немає — лише галочка «замовити» (одна порція). --}}
         <div class="rounded-xl border border-ink-200 bg-white p-4">
             <div class="mb-3 grid grid-cols-2 gap-3">
                 @foreach ($section->sectionDishes as $sectionDish)
@@ -37,17 +37,12 @@
                     {{ number_format((float) $section->price, 2, ',', ' ') }} грн
                 </span>
 
-                <div class="flex items-center gap-2 text-sm text-ink-500">
-                    <span>Порцій</span>
-                    <select name="complex_qty[{{ $section->id }}]" data-price="{{ $section->price }}"
-                            data-complex="{{ $section->id }}"
-                            class="w-16 rounded-lg border border-ink-300 bg-white px-2 py-1.5 text-center text-sm font-semibold
-                                   focus:border-deep-500 focus:outline-none focus:ring-2 focus:ring-deep-100">
-                        @for ($n = 0; $n <= 5; $n++)
-                            <option value="{{ $n }}" @selected($n === 1)>{{ $n === 0 ? '—' : $n }}</option>
-                        @endfor
-                    </select>
-                </div>
+                <label class="flex cursor-pointer items-center gap-2 text-sm text-ink-500">
+                    <span>Замовити</span>
+                    <input type="checkbox" name="complex_qty[{{ $section->id }}]" value="1" checked
+                           data-price="{{ $section->price }}" data-complex="{{ $section->id }}"
+                           class="h-5 w-5 shrink-0 accent-deep-700">
+                </label>
             </div>
         </div>
     @elseif ($isChoice)
@@ -76,24 +71,16 @@
             </div>
         </div>
     @else
-        {{-- Extra: незалежні додаткові страви. --}}
+        {{-- Extra: незалежні додаткові страви, кожна — одна порція або нічого. --}}
         <div class="space-y-2">
             @foreach ($section->sectionDishes as $sectionDish)
-                <div class="flex items-center gap-3 rounded-xl border border-ink-200 bg-white p-3 transition
-                            focus-within:border-deep-500 hover:border-ink-300">
+                <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-ink-200 bg-white p-3 transition
+                              has-[:checked]:border-deep-500 has-[:checked]:bg-brand-50/50 hover:border-ink-300">
+                    <input type="checkbox" name="qty[{{ $section->id }}][{{ $sectionDish->dish_id }}]" value="1"
+                           data-price="{{ $sectionDish->dish->price }}"
+                           class="h-5 w-5 shrink-0 accent-deep-700">
                     <x-dish-row :dish="$sectionDish->dish" />
-
-                    <select name="qty[{{ $section->id }}][{{ $sectionDish->dish_id }}]"
-                            data-price="{{ $sectionDish->dish->price }}"
-                            class="w-16 shrink-0 rounded-lg border border-ink-300 bg-white px-2 py-2 text-center text-sm font-semibold
-                                   focus:border-deep-500 focus:outline-none focus:ring-2 focus:ring-deep-100">
-                        @for ($n = 0; $n <= 5; $n++)
-                            <option value="{{ $n }}" @selected($n === 0)>
-                                {{ $n === 0 ? '—' : $n }}
-                            </option>
-                        @endfor
-                    </select>
-                </div>
+                </label>
             @endforeach
         </div>
     @endif

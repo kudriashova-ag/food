@@ -1,7 +1,7 @@
 /**
  * Сума за день у меню оновлюється просто в браузері, без запиту на сервер:
- * ціна кожної страви лежить у data-price, кількість — у значенні select'а,
- * а для групи вибору береться 1 порція.
+ * ціна кожної страви чи комплексу лежить у data-price, а замовляється
+ * одна порція — галочкою (комплекс, додаткові) або радіокнопкою (група вибору).
  *
  * Сервер малює стартову суму сам, тож без JS сторінка теж лишається коректною.
  */
@@ -14,25 +14,10 @@ const money = new Intl.NumberFormat('uk-UA', {
 function dayTotal(form) {
     let total = 0;
 
-    // Комплекси (data-complex): фіксована ціна за весь набір.
-    form.querySelectorAll('[data-complex]').forEach((field) => {
-        const price = Number.parseFloat(field.dataset.price) || 0;
-        total += price * (Number.parseInt(field.value, 10) || 0);
-    });
-
-    // Choice/Extra (data-price, але не data-complex): ціна за штуку.
-    form.querySelectorAll('[data-price]:not([data-complex])').forEach((field) => {
-        const price = Number.parseFloat(field.dataset.price) || 0;
-
-        if (field.type === 'radio') {
-            if (field.checked) {
-                total += price;
-            }
-
-            return;
+    form.querySelectorAll('[data-price]').forEach((field) => {
+        if (field.checked) {
+            total += Number.parseFloat(field.dataset.price) || 0;
         }
-
-        total += price * (Number.parseInt(field.value, 10) || 0);
     });
 
     return total;

@@ -132,7 +132,10 @@ class CartService
                     ->first();
 
                 if ($existing !== null) {
-                    $existing->increment('quantity', $item->quantity);
+                    if (! self::isSinglePortion($item->menuSection)) {
+                        $existing->increment('quantity', $item->quantity);
+                    }
+
                     $item->delete();
                 } else {
                     $item->update(['cart_id' => $cart->id]);
@@ -159,7 +162,7 @@ class CartService
         $this->deadlines->assertCanOrder($menuDay->supplier_id, $menuDay->date);
 
         if ($section->type === MenuSectionType::Complex) {
-            return $this->addComplex($cart, $section, $quantity);
+            return $this->addComplex($cart, $section);
         }
 
         // Для choice/extra — обов'язковий dishId.
@@ -181,6 +184,11 @@ class CartService
             ->where('dish_id', $dishId)
             ->first();
 
+        // Додаткова страва — одна порція або нічого: повторне додавання нічого не змінює.
+        if ($item !== null && self::isSinglePortion($section)) {
+            return $item;
+        }
+
         if ($item !== null) {
             $item->increment('quantity', $quantity);
 
@@ -192,34 +200,33 @@ class CartService
             'service_date' => $menuDay->date,
             'dish_id' => $dishId,
             'menu_section_id' => $section->id,
-            'quantity' => $quantity,
+            'quantity' => self::isSinglePortion($section) ? 1 : $quantity,
         ]);
     }
 
-    /** Додає комплекс цілком у кошик як одну позицію. */
-    private function addComplex(Cart $cart, MenuSection $section, int $quantity): CartItem
+    /**
+     * Комплекс і додаткові страви замовляються однією порцією — тільки «так» або «ні».
+     * Кількість лишилась лише в групі вибору (перші страви).
+     */
+    public static function isSinglePortion(?MenuSection $section): bool
+    {
+        return $section !== null && $section->type !== MenuSectionType::Choice;
+    }
+
+    /** Додає комплекс цілком у кошик як одну позицію, завжди одну порцію. */
+    private function addComplex(Cart $cart, MenuSection $section): CartItem
     {
         if ($section->price === null || $section->price <= 0) {
             throw MenuUnavailableException::dishNotInMenu($section->title, $section->menuDay->date);
         }
 
-        $item = $cart->items()
-            ->whereNull('dish_id')
-            ->where('menu_section_id', $section->id)
-            ->first();
-
-        if ($item !== null) {
-            $item->increment('quantity', $quantity);
-
-            return $item->refresh();
-        }
-
-        return $cart->items()->create([
-            'supplier_id' => $section->menuDay->supplier_id,
-            'service_date' => $section->menuDay->date,
+        return $cart->items()->firstOrCreate([
             'dish_id' => null,
             'menu_section_id' => $section->id,
-            'quantity' => $quantity,
+        ], [
+            'supplier_id' => $section->menuDay->supplier_id,
+            'service_date' => $section->menuDay->date,
+            'quantity' => 1,
         ]);
     }
 
@@ -317,7 +324,7 @@ class CartService
             return;
         }
 
-        $item->update(['quantity' => $quantity]);
+        $item->update(['quantity' => self::isSinglePortion($item->menuSection) ? 1 : $quantity]);
     }
 
     public function remove(CartItem $item): void

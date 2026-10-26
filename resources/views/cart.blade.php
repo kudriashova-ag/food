@@ -64,17 +64,20 @@
                                     </div>
                                 </div>
 
-                                <form method="POST" action="{{ route('cart.update-item', $item) }}">
-                                    @csrf
-                                    @method('PATCH')
-                                    <select name="quantity" onchange="this.form.submit()"
-                                            class="w-16 rounded-lg border border-ink-300 bg-white px-2 py-1.5 text-center text-sm font-semibold
-                                                   focus:border-deep-500 focus:outline-none focus:ring-2 focus:ring-deep-100">
-                                        @for ($n = 1; $n <= 10; $n++)
-                                            <option value="{{ $n }}" @selected($n === $item->quantity)>{{ $n }}</option>
-                                        @endfor
-                                    </select>
-                                </form>
+                                {{-- Комплекс і додаткові — одна порція: позицію можна лише прибрати. --}}
+                                @unless (\App\Services\Orders\CartService::isSinglePortion($item->menuSection))
+                                    <form method="POST" action="{{ route('cart.update-item', $item) }}">
+                                        @csrf
+                                        @method('PATCH')
+                                        <select name="quantity" onchange="this.form.submit()"
+                                                class="w-16 rounded-lg border border-ink-300 bg-white px-2 py-1.5 text-center text-sm font-semibold
+                                                       focus:border-deep-500 focus:outline-none focus:ring-2 focus:ring-deep-100">
+                                            @for ($n = 1; $n <= 10; $n++)
+                                                <option value="{{ $n }}" @selected($n === $item->quantity)>{{ $n }}</option>
+                                            @endfor
+                                        </select>
+                                    </form>
+                                @endunless
 
                                 <div class="w-20 shrink-0 text-right text-sm font-semibold tabular-nums">
                                     {{ number_format($item->subtotal(), 2, ',', ' ') }}

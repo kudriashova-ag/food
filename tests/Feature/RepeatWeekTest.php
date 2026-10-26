@@ -104,7 +104,8 @@ class RepeatWeekTest extends TestCase
         $item = CartItem::query()->firstOrFail();
 
         $this->assertSame(self::TARGET_MONDAY, $item->service_date->toDateString());
-        $this->assertSame(2, $item->quantity);
+        // Комплекс береться однією порцією, навіть якщо в старому замовленні їх було дві.
+        $this->assertSame(1, $item->quantity);
     }
 
     public function test_missing_dish_is_reported_instead_of_being_skipped_silently(): void

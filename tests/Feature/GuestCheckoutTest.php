@@ -217,7 +217,8 @@ class GuestCheckoutTest extends TestCase
         $this->patch(route('cart.update-item', $item), ['quantity' => 3])
             ->assertRedirect();
 
-        $this->assertSame(3, $item->fresh()->quantity);
+        // Комплекс — одна порція: запит пройшов, але кількість лишилась 1.
+        $this->assertSame(1, $item->fresh()->quantity);
 
         $this->delete(route('cart.destroy-item', $item))->assertRedirect();
         $this->assertSame(0, CartItem::query()->count());
@@ -229,13 +230,13 @@ class GuestCheckoutTest extends TestCase
         // кошика, щоб оновити шапку й нижню панель на місці.
         $response = $this->postJson(
             route('cart.store-day', [$this->supplier->slug, self::SERVICE_DATE]),
-            ['complex_qty' => [$this->complex->id => 2]],
+            ['complex_qty' => [$this->complex->id => 1]],
         );
 
         $response->assertOk()
             ->assertJson([
                 'ok' => true,
-                'cart' => ['count' => 2, 'total' => 120],
+                'cart' => ['count' => 1, 'total' => 60],
             ])
             ->assertJsonPath('message', fn (string $m): bool => str_contains($m, '17.08.2026'));
     }

@@ -149,7 +149,8 @@ class StudentOrderingPagesTest extends TestCase
         $items = CartItem::query()->get();
 
         $this->assertCount(2, $items);
-        $this->assertSame(2, $items->firstWhere('dish_id', $this->water->id)->quantity);
+        // Галочка дає одну порцію; більше, ніж 1, сервер не приймає.
+        $this->assertSame(1, $items->firstWhere('dish_id', $this->water->id)->quantity);
     }
 
     public function test_dish_with_zero_quantity_is_not_added(): void
