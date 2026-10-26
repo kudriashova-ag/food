@@ -2,13 +2,10 @@
 
 namespace App\Filament\Supplier\Pages;
 
-use App\Exports\SupplierOrdersWeekExport;
 use App\Models\Supplier;
 use App\Services\Reports\KitchenReportService;
-use App\Services\Reports\SupplierOrdersWeekService;
 use BackedEnum;
 use Carbon\CarbonImmutable;
-use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -17,9 +14,6 @@ use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class KitchenReports extends Page implements HasForms
@@ -80,92 +74,11 @@ class KitchenReports extends Page implements HasForms
     protected function getHeaderActions(): array
     {
         return [
-            $this->weekOrdersExportAction(),
-
-            Action::make('excel')
-                ->label('Експорт у Excel')
-                ->icon('heroicon-o-table-cells')
-                ->action(fn (): BinaryFileResponse => $this->downloadExcel()),
-
             Action::make('pdf')
                 ->label('Друк / PDF')
                 ->icon('heroicon-o-printer')
                 ->action(fn (): Response => $this->downloadPdf()),
         ];
-    }
-
-    /** Тижневий звіт замовлень: хто що замовив, по днях і секціях меню. */
-    private function weekOrdersExportAction(): Action
-    {
-        return Action::make('weekOrders')
-            ->label('Замовлення за тиждень')
-            ->icon('heroicon-o-arrow-down-tray')
-            ->color('gray')
-            ->modalHeading('Експорт замовлень за тиждень')
-            ->modalDescription('За замовчуванням — наступний робочий тиждень, дати можна змінити.')
-            ->modalSubmitActionLabel('Завантажити')
-            ->schema([
-                DatePicker::make('from')
-                    ->label('З дати')
-                    ->native(false)
-                    ->displayFormat('d.m.Y')
-                    ->required()
-                    ->default(static::nextWeekStart()->toDateString()),
-
-                DatePicker::make('to')
-                    ->label('По дату')
-                    ->native(false)
-                    ->displayFormat('d.m.Y')
-                    ->required()
-                    ->afterOrEqual('from')
-                    ->default(static::nextWeekEnd()->toDateString()),
-            ])
-            ->action(function (array $data): BinaryFileResponse {
-                $from = CarbonImmutable::parse($data['from'])->startOfDay();
-                $to = CarbonImmutable::parse($data['to'])->startOfDay();
-
-                return $this->downloadOrders(
-                    $from,
-                    $to,
-                    sprintf('zamovlennia-%s-%s-%s.xlsx', $this->supplier()->slug, $from->toDateString(), $to->toDateString()),
-                );
-            });
-    }
-
-    /** Звіт «хто що замовив» за період — той самий для тижня й для одного дня. */
-    private function downloadOrders(CarbonImmutable $from, CarbonImmutable $to, string $fileName): BinaryFileResponse
-    {
-        $report = app(SupplierOrdersWeekService::class)->build($this->supplier(), $from, $to);
-
-        $export = new SupplierOrdersWeekExport($report['columns'], $report['rows']);
-
-        $path = sprintf('exports/%s.xlsx', Str::uuid());
-        $export->store($path, 'local');
-
-        return response()->download(Storage::disk('local')->path($path), $fileName)->deleteFileAfterSend();
-    }
-
-    /** Понеділок наступного тижня — явно, без покладання на дефолтну локаль. */
-    private static function nextWeekStart(): CarbonInterface
-    {
-        return today()->addWeek()->startOfWeek(CarbonInterface::MONDAY);
-    }
-
-    private static function nextWeekEnd(): CarbonInterface
-    {
-        return static::nextWeekStart()->addDays(4);
-    }
-
-    /** Той самий звіт, що й «Замовлення за тиждень», але тільки на вибрану дату харчування. */
-    private function downloadExcel(): BinaryFileResponse
-    {
-        $date = $this->getDate()->startOfDay();
-
-        return $this->downloadOrders(
-            $date,
-            $date,
-            sprintf('zamovlennia-%s-%s.xlsx', $this->supplier()->slug, $date->toDateString()),
-        );
     }
 
     private function downloadPdf(): Response

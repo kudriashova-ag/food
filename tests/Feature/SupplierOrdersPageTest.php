@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Enums\OrderLineStatus;
 use App\Enums\UserRole;
 use App\Filament\Supplier\Resources\Orders\Pages\ListOrders;
-use App\Filament\Supplier\Resources\Orders\Pages\ViewOrder;
 use App\Models\Dish;
 use App\Models\Order;
 use App\Models\SchoolClass;
@@ -62,61 +61,71 @@ class SupplierOrdersPageTest extends TestCase
         ]);
     }
 
-    public function test_list_shows_number_student_and_own_total(): void
+    public function test_current_week_is_shown_by_default(): void
     {
+        $this->travelTo(self::SERVICE_DATE.' 10:00');
+
         $order = $this->order();
-        $this->line($order, $this->supplier, 'Куряча котлета', 2, 60);
-        $this->line($order, $this->supplier, 'Борщ', 1, 40);
-        // Страва іншого постачальника в тому самому чеку не має впливати на суму.
-        $this->line($order, $this->otherSupplier, 'Сирники', 1, 45);
+        $this->line($order, $this->supplier, 'Куряча котлета', 1, 60);
 
         Livewire::test(ListOrders::class)
-            ->assertCanSeeTableRecords([$order])
-            ->assertSee($order->number)
+            ->assertSee('Замовлення з 17.08 по 21.08.2026')
             ->assertSee('Іваненко Марія')
-            ->assertSee('160,00');
+            ->assertSee('5-А')
+            ->assertSee('Куряча котлета');
     }
 
-    public function test_cancelled_lines_do_not_inflate_the_total(): void
+    public function test_period_can_be_changed(): void
     {
+        $this->travelTo(self::SERVICE_DATE.' 10:00');
+
+        $order = $this->order();
+        $this->line($order, $this->supplier, 'Куряча котлета', 1, 60);
+
+        Livewire::test(ListOrders::class)
+            ->set('data.from', '2026-08-24')
+            ->set('data.to', '2026-08-28')
+            ->assertDontSee('Іваненко Марія')
+            ->assertSee('Замовлень за цей період немає.');
+    }
+
+    public function test_cancelled_lines_and_other_suppliers_are_not_shown(): void
+    {
+        $this->travelTo(self::SERVICE_DATE.' 10:00');
+
         $order = $this->order();
         $this->line($order, $this->supplier, 'Куряча котлета', 1, 60);
         $this->line($order, $this->supplier, 'Борщ', 1, 40, OrderLineStatus::Cancelled);
-
-        Livewire::test(ListOrders::class)->assertSee('60,00');
-    }
-
-    public function test_orders_without_own_lines_are_hidden(): void
-    {
-        $foreign = $this->order();
-        $this->line($foreign, $this->otherSupplier, 'Сирники', 1, 45);
-
-        Livewire::test(ListOrders::class)->assertCanNotSeeTableRecords([$foreign]);
-    }
-
-    public function test_detail_page_shows_composition_and_who_ordered(): void
-    {
-        $order = $this->order();
-        $this->line($order, $this->supplier, 'Куряча котлета', 2, 60);
+        // Страва іншого постачальника в тому самому чеку сюди не потрапляє.
         $this->line($order, $this->otherSupplier, 'Сирники', 1, 45);
 
-        Livewire::test(ViewOrder::class, ['record' => $order->getKey()])
+        Livewire::test(ListOrders::class)
             ->assertSee('Куряча котлета')
-            ->assertSee('Іваненко Марія')
-            ->assertSee('5-А')
-            ->assertSee($order->number)
-            ->assertSee('120,00')
-            // Чужа страва в картку не потрапляє.
+            ->assertDontSee('Борщ')
             ->assertDontSee('Сирники');
     }
 
-    public function test_supplier_cannot_open_a_foreign_order(): void
+    public function test_day_export_returns_a_file(): void
     {
-        $foreign = $this->order();
-        $this->line($foreign, $this->otherSupplier, 'Сирники', 1, 45);
+        $order = $this->order();
+        $this->line($order, $this->supplier, 'Куряча котлета', 1, 60);
 
-        $this->get(route('filament.supplier.resources.orders.view', ['record' => $foreign->getKey()]))
-            ->assertNotFound();
+        Livewire::test(ListOrders::class)
+            ->callAction('excel', data: ['date' => self::SERVICE_DATE])
+            ->assertFileDownloaded('zamovlennia-smachno-2026-08-17.xlsx');
+    }
+
+    public function test_week_orders_export_returns_a_file(): void
+    {
+        $order = $this->order();
+        $this->line($order, $this->supplier, 'Куряча котлета', 1, 60);
+
+        Livewire::test(ListOrders::class)
+            ->callAction('weekOrders', data: [
+                'from' => self::SERVICE_DATE,
+                'to' => '2026-08-21',
+            ])
+            ->assertFileDownloaded('zamovlennia-smachno-2026-08-17-2026-08-21.xlsx');
     }
 
     private function order(): Order
