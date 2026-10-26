@@ -509,19 +509,17 @@
     color: var(--muted);
     font-size: 13px;
   }
-  /* квадратна галочка: комплекс і додаткові страви */
-  .mock-dish .dot.square { border-radius: 4px; }
 </style>
 </head>
 <body>
 
 <div class="shell">
   <header class="masthead">
-    <span class="eyebrow">Для учнів і батьків</span>
+    <span class="eyebrow">Для батьків і законних представників учня</span>
     <h1>Як замовити харчування на сайті</h1>
     <p class="lede">
-      Покроковий путівник: від першого відкриття меню до оплати й скасування,
-      якщо плани змінилися. Увійти потрібно лише для підтвердження замовлення.
+      Покроковий путівник: від першого відкриття меню до скасування страви,
+      якщо плани змінилися. Реєстрація не потрібна аж до підтвердження замовлення.
     </p>
   </header>
 
@@ -541,17 +539,17 @@
       <div class="step-head"><span class="step-num">1</span><h2>Вхід на сайт</h2></div>
       <div class="body">
         <p>
-          Логін і пароль <strong>такі самі, як у MyStat</strong>. Натисніть «Увійти»
-          у верхньому правому куті, введіть їх і, за бажанням, поставте галочку
-          «Запам'ятати мене», щоб не входити щоразу.
+          Меню можна гортати й навіть скласти повний кошик <strong>без входу</strong> —
+          сайт не вимагає реєстрації. Він попросить увійти лише в останню мить,
+          коли ви натиснете «Підтвердити замовлення».
         </p>
         <p>
-          Меню й кошик доступні <strong>без входу</strong>. Сайт попросить увійти лише тоді,
-          коли ви підтверджуватимете замовлення.
+          Логін і пароль для учня видає школа. Забули пароль — зверніться
+          до адміністрації, там створять новий.
         </p>
         <div class="callout tip">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
-          <p><strong>Кошик не губиться.</strong> Усе, що ви обрали до входу, автоматично перейде у ваш кошик одразу після входу.</p>
+          <p><strong>Кошик не губиться.</strong> Все, що ви обрали до входу, автоматично приєднається до вашого особистого кошика одразу після входу.</p>
         </div>
       </div>
     </section>
@@ -560,10 +558,11 @@
       <div class="step-head"><span class="step-num">2</span><h2>Згода на обробку даних</h2></div>
       <div class="body">
         <p>
-          Під час першого входу сайт попросить згоду на обробку персональних даних
-          учня: ПІБ, клас, склад і дати замовлень, e-mail для сповіщень.
-          Це питають <strong>один раз</strong>. Поставте галочку й натисніть «Продовжити».
+          При першому вході сайт запитає згоду на обробку персональних даних
+          учня — ПІБ, клас, склад і дати замовлень, e-mail для сповіщень.
+          Питається це <strong>один раз</strong>, далі система не нагадує.
         </p>
+        <p>Без згоди не вийде оформити замовлення — але переглядати меню й збирати кошик можна й так.</p>
       </div>
     </section>
 
@@ -571,149 +570,123 @@
       <div class="step-head"><span class="step-num">3</span><h2>Постачальник і меню</h2></div>
       <div class="body">
         <p>
-          На головній сторінці «Що замовити» показані всі постачальники школи.
-          Натисніть «Обрати страви по днях» під потрібним, і відкриється меню на найближчі дні.
+          На головній сторінці — картки всіх постачальників школи. Відкрийте
+          будь-якого кнопкою «Обрати страви по днях» — потрапите в меню на найближчі дні.
         </p>
         <div class="callout tip">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
-          <p>Можна замовляти в кількох постачальників, навіть на один і той самий день. Кошик у них спільний.</p>
+          <p>Можна замовляти одразу в кількох постачальників — кошик і оформлення спільні на все замовлення.</p>
         </div>
-        <p>
-          Найближчий день, на який ще можна замовити, відкритий одразу. Щоб відкрити інший день,
-          натисніть на рядок з його датою. Біля кожного дня написано, до якого часу приймають замовлення,
-          наприклад «Замовити можна до пт, 17.10, 12:00». Біля дня можуть бути такі позначки:
-        </p>
+        <p>Найближчий день, що ще приймає замовлення, розгорнутий одразу; решту відкриваєте дотиком по назві дня. Біля дня видно позначки:</p>
         <div style="display:flex; flex-wrap:wrap; gap:8px; margin-block:12px;">
           <span class="badge today">сьогодні</span>
           <span class="badge cart">у кошику</span>
           <span class="badge done">✓ замовлено</span>
-          <span class="badge closed">Приймання завершено</span>
+          <span class="badge closed">приймання завершено</span>
         </div>
       </div>
     </section>
 
     <section class="step" id="s4">
-      <div class="step-head"><span class="step-num">4</span><h2>Як скласти замовлення на день</h2></div>
+      <div class="step-head"><span class="step-num">4</span><h2>Як влаштоване меню дня</h2></div>
       <div class="body">
-        <p>Меню дня складається з трьох частин. Комплекс показаний ліворуч, перші страви й додаткові праворуч.</p>
+        <p>Кожен день складається із трьох типів секцій. Комплекс — зліва; група вибору й додаткові страви — у боковій колонці праворуч.</p>
 
         <div class="type-grid">
           <div class="type-card">
             <div class="tname"><span class="swatch" style="background:var(--accent)"></span>Комплекс</div>
-            <p>Набір страв за фіксованою ціною, купується тільки цілком. Галочка «Замовити» стоїть одразу, її можна зняти. Одна порція.</p>
+            <p>Набір страв одним блоком, фіксована ціна. Завжди одна порція на день; окрему страву можна виключити галочкою.</p>
           </div>
           <div class="type-card">
-            <div class="tname"><span class="swatch" style="background:#c9a15a"></span>Перші страви</div>
-            <p>Обирається одна страва зі списку або «Не потрібно». Можна замовити й без комплексу.</p>
+            <div class="tname"><span class="swatch" style="background:#c9a15a"></span>Група вибору</div>
+            <p>Взаємовиключні варіанти — суп або борщ. Один варіант або пропустити; можна замовити й окремо від комплексу.</p>
           </div>
           <div class="type-card">
-            <div class="tname"><span class="swatch" style="background:#7a91b0"></span>Додатково</div>
-            <p>Вода, випічка тощо. Галочка біля кожної потрібної страви. Кожна страва замовляється однією порцією.</p>
+            <div class="tname"><span class="swatch" style="background:#7a91b0"></span>Додаткові страви</div>
+            <p>Вода, випічка, солодощі. Незалежно одна від одної, кількість довільна.</p>
           </div>
         </div>
 
-        <div class="mock-menu" role="img" aria-label="Приклад меню дня: комплекс з галочкою «Замовити», обраний борщ, додаткові страви з галочками">
+        <div class="mock-menu" role="img" aria-label="Приклад меню дня: комплекс зліва, група вибору та додаткові страви праворуч">
           <div class="mock-menu-head">
-            <span class="when">Понеділок, 20.10</span>
-            <span class="timer">Замовити можна до пт, 17.10, 12:00</span>
+            <span class="when">Понеділок, 14.09 <span class="badge today">сьогодні</span></span>
+            <span class="timer">до 09:00 завтра</span>
           </div>
           <div class="mock-menu-body">
             <div class="mock-col">
               <div class="mock-col-label">Комплекс</div>
-              <div class="mock-dish"><span class="name">Салат Олів'є</span></div>
-              <div class="mock-dish"><span class="name">Пюре картопляне</span></div>
-              <div class="mock-dish"><span class="name">Тефтелі у томатному соусі</span></div>
-              <div class="mock-dish checked"><span class="dot square"></span><span class="name"><strong>Замовити</strong></span><span class="qty">230,00 грн</span></div>
+              <div class="mock-dish checked"><span class="dot"></span><span class="name">Курча по-київськи</span></div>
+              <div class="mock-dish checked"><span class="dot"></span><span class="name">Пюре картопляне</span></div>
+              <div class="mock-dish"><span class="dot"></span><span class="name">Салат овочевий</span></div>
             </div>
             <div class="mock-col">
-              <div class="mock-col-label">Перші страви</div>
-              <div class="mock-dish checked"><span class="dot"></span><span class="name">Борщ</span><span class="qty">45,00</span></div>
-              <div class="mock-dish"><span class="dot"></span><span class="name">Суп з локшиною</span><span class="qty">45,00</span></div>
-              <div class="mock-dish"><span class="dot"></span><span class="name">Не потрібно</span></div>
+              <div class="mock-col-label">Група вибору</div>
+              <div class="mock-dish checked"><span class="dot"></span><span class="name">Суп з фрикадельками</span></div>
+              <div class="mock-dish"><span class="dot"></span><span class="name">Борщ український</span></div>
               <div class="mock-col-label" style="margin-top:14px;">Додатково</div>
-              <div class="mock-dish"><span class="dot square"></span><span class="name">Вода негазована</span><span class="qty">15,00</span></div>
+              <div class="mock-dish"><span class="name">Вода негазована</span><span class="qty">× 2</span></div>
             </div>
           </div>
-          <div class="mock-price">Разом за день <strong>275,00 грн</strong></div>
+          <div class="mock-price">Разом за день <strong>96,00 грн</strong></div>
         </div>
-
-        <p>
-          Сума «Разом за день» змінюється одразу, як тільки ви ставите чи знімаєте галочки.
-          Потім натисніть <strong>«Додати цей день у кошик»</strong>. Так само додайте всі інші
-          потрібні дні, хоч цілий тиждень.
-        </p>
-        <p>
-          Один і той самий день двічі в кошик не додається. Щоб змінити склад доданого дня,
-          натисніть «Змінити в кошику».
-        </p>
       </div>
     </section>
 
     <section class="step" id="s5">
       <div class="step-head"><span class="step-num">5</span><h2>Кошик</h2></div>
       <div class="body">
-        <p>Кошик відкривається кнопкою внизу екрана або з шапки сайту. Позиції в ньому згруповані <strong>по днях</strong>, а всередині дня по постачальниках:</p>
+        <p>Кнопка «Додати цей день у кошик» переносить обране. Після цього день позначається «у кошику», а склад правиться вже тільки в кошику.</p>
+        <p>Кошик групує позиції <strong>по днях</strong>, а всередині дня — по постачальниках, якщо на цю дату замовлено в кількох. Назва постачальника йде в дужках, сірим і дрібніше:</p>
 
-        <div class="mock-cart" role="img" aria-label="Приклад кошика на один день">
-          <div class="mock-cart-day">Понеділок, 20.10</div>
-          <div class="mock-cart-supplier"><span>Смачно</span><span>Замовити можна до пт, 17.10, 12:00</span></div>
+        <div class="mock-cart" role="img" aria-label="Приклад рядка кошика з назвою постачальника в дужках">
+          <div class="mock-cart-day">Понеділок, 14.09</div>
+          <div class="mock-cart-supplier"><span>Bella Vita</span><span>до 09:00 завтра</span></div>
           <div class="mock-cart-item">
-            <span class="label"><strong>Комплекс №1</strong> <span class="supplier">(Смачно)</span></span>
-            <span class="price">230,00</span>
+            <span class="label"><strong>Суп з фрикадельками</strong> <span class="supplier">(Bella Vita)</span></span>
+            <span class="price">62,00</span>
           </div>
+          <div class="mock-cart-supplier"><span>Смачно</span><span>до 08:30 сьогодні</span></div>
           <div class="mock-cart-item">
-            <span class="label"><strong>Борщ</strong> <span class="supplier">(Смачно)</span></span>
-            <span class="price">45,00</span>
+            <span class="label"><strong>Курча по-київськи</strong> <span class="supplier">(Смачно)</span></span>
+            <span class="price">89,00</span>
           </div>
-          <div class="mock-cart-total">Разом за день <strong>275,00 грн</strong></div>
+          <div class="mock-cart-total">Разом за день <strong>151,00 грн</strong></div>
         </div>
-
-        <ul>
-          <li><strong>Прибрати позицію</strong> можна кнопкою ✕ праворуч.</li>
-          <li><strong>Кількість</strong> можна змінити тільки в перших страв. Комплекс і додаткові страви завжди замовляються однією порцією.</li>
-        </ul>
 
         <div class="callout warn">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-          <p>Якщо час на замовлення дня минув, поки він лежав у кошику, зверху з'явиться попередження зі списком таких позицій. Приберіть їх, щоб оформити решту.</p>
+          <p>Якщо термін приймання на день минув, поки він чекав у кошику, — зверху зʼявиться попередження з переліком таких позицій. Приберіть їх, щоб оформити решту.</p>
         </div>
       </div>
     </section>
 
     <section class="step" id="s6">
-      <div class="step-head"><span class="step-num">6</span><h2>Оформлення й оплата</h2></div>
+      <div class="step-head"><span class="step-num">6</span><h2>Оформлення замовлення</h2></div>
       <div class="body">
-        <p>Перевірте «Усього» внизу кошика й натисніть <strong>«Підтвердити замовлення»</strong>. Якщо ви ще не увійшли, кнопка називатиметься «Увійти й оформити замовлення»: після входу ви повернетеся в кошик з усім, що зібрали.</p>
-        <p>Після підтвердження з'являться номер замовлення й сума, а страви перейдуть у розділ «Мої замовлення».</p>
-        <p>Оплата <strong>не відбувається на сайті</strong>. На пошту або в Telegram приходить повідомлення «Замовлення прийнято». У ньому для кожного постачальника вказані:</p>
-        <ul>
-          <li><strong>сума для оплати</strong>;</li>
-          <li><strong>реквізити для оплати</strong>.</li>
-        </ul>
-        <p>Сплатіть кожному постачальнику окремо за його реквізитами. Порядок розрахунків визначає школа.</p>
+        <p>Знизу кошика — кнопка «Підтвердити замовлення». Не увійшли — замість неї буде «Увійти й оформити замовлення»: після входу ви одразу повернетесь у кошик з усім, що зібрали.</p>
+        <p>Оплата відбувається поза сайтом — тут лише фіксується вибір страв. Після підтвердження кошик очищується, а страви з'являються в розділі «Мої замовлення».</p>
       </div>
     </section>
 
     <section class="step" id="s7">
       <div class="step-head"><span class="step-num">7</span><h2>«Мої замовлення»</h2></div>
       <div class="body">
-        <p>Тут видно все, що ви замовили, тиждень за тижнем. Між тижнями можна переходити кнопками «Попередній» і «Наступний». На телефоні цей розділ називається «Замовлення».</p>
-        <p>Біля кожного дня показано, що саме замовлено, за якою ціною і в якого постачальника. Якщо на робочий день ви нічого не замовили, там буде напис «Харчування не замовлено», а у вихідні й свята — «Вихідний».</p>
+        <p>Розділ показує все оформлене, по тижнях — стрілками вгорі перемикаєтесь на попередній чи наступний. Дні згруповані картками, всередині — постачальники зі своїм списком страв, кількістю й сумою.</p>
       </div>
     </section>
 
     <section class="step" id="s8">
       <div class="step-head"><span class="step-num">8</span><h2>Скасування</h2></div>
       <div class="body">
-        <p>Скасувати можна, поки не минув термін, вказаний на кнопці, наприклад «Скасувати до чт, 16.10, 18:00». Є два способи:</p>
+        <p>Поки не минув дедлайн скасування, доступно:</p>
         <ul>
-          <li><strong>окрему страву</strong> — кнопкою ✕ біля неї;</li>
-          <li><strong>весь день у постачальника</strong> — кнопкою «Скасувати день».</li>
+          <li>скасувати <strong>одну позицію</strong> — кнопкою з хрестиком біля неї;</li>
+          <li>скасувати <strong>весь день у одного постачальника</strong> разом — кнопкою «Скасувати день».</li>
         </ul>
-        <p>Коли термін минув, замість кнопки буде напис «Скасування недоступне».</p>
+        <p>Дедлайн минув — замість кнопки з'явиться напис «Скасування недоступне»; далі відмінити можна тільки через адміністрацію школи.</p>
         <div class="callout tip">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
-          <p>Скасована страва залишається у списку перекресленою, з датою й часом скасування. <strong>Щоб змінити склад уже оформленого дня</strong>, спершу скасуйте його, а потім замовте заново через меню.</p>
+          <p>Скасована позиція не зникає з історії — вона лишається перекресленою, з часом скасування й причиною, якщо її вказала школа.</p>
         </div>
       </div>
     </section>
@@ -721,8 +694,8 @@
     <section class="step" id="s9">
       <div class="step-head"><span class="step-num">9</span><h2>Повторити тиждень</h2></div>
       <div class="body">
-        <p>Кнопка «Повторити цей тиждень на …» у «Моїх замовленнях» кладе в кошик той самий набір страв на наступний тиждень.</p>
-        <p>Якщо якоїсь страви в новому меню немає або приймання на цей день уже закрилося, сайт покаже, що саме не вдалося додати. Після цього перевірте кошик і підтвердіть замовлення.</p>
+        <p>Кнопка «Повторити цей тиждень на …» у «Моїх замовленнях» переносить весь склад поточного тижня на наступний одним натисканням — зручно, якщо харчування не змінюється тиждень у тиждень.</p>
+        <p>Система звіряє страви за назвою: якщо якоїсь уже немає в меню постачальника, вона просто пропускається, а решта переноситься.</p>
       </div>
     </section>
 
@@ -731,11 +704,11 @@
       <div class="body">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Що</th><th>Як</th></tr></thead>
+            <thead><tr><th>Що</th><th>Навіщо</th></tr></thead>
             <tbody>
-              <tr><td>E-mail для сповіщень</td><td>На нього приходять підтвердження замовлень і нагадування. Поле можна лишити порожнім.</td></tr>
-              <tr><td>Telegram</td><td>«Підключити Telegram» → «Відкрити Telegram» → у боті натисніть «Старт». Посилання діє 15 хвилин. Можна підключити кілька акаунтів, наприклад мамі й татові окремо.</td></tr>
-              <tr><td>Пароль</td><td>Введіть поточний пароль, потім двічі новий і натисніть «Змінити пароль».</td></tr>
+              <tr><td>E-mail для сповіщень</td><td>Підтвердження замовлень і нагадування. Можна лишити порожнім.</td></tr>
+              <tr><td>Telegram</td><td>Кнопка «Підключити Telegram» дає посилання на 15 хвилин. Можна підключити кілька чатів — наприклад мамі й татові окремо.</td></tr>
+              <tr><td>Пароль</td><td>Зміна за поточним паролем — сторінка «Налаштування».</td></tr>
             </tbody>
           </table>
         </div>
@@ -743,33 +716,37 @@
     </section>
 
     <section class="step" id="s11">
-      <div class="step-head"><span class="step-num">11</span><h2>Якщо щось не виходить</h2></div>
+      <div class="step-head"><span class="step-num">11</span><h2>Часті питання</h2></div>
       <div class="body" style="max-width:72ch;">
         <details class="faq-item" open>
-          <summary>Не вдається увійти.<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></summary>
-          <div class="answer">Напишіть на сайті в розділі «Довідка» → «Допомога» і вкажіть ПІБ учня та клас. Ця форма доступна й без входу.</div>
+          <summary>Не бачу кнопки «Додати в кошик» на якийсь день.<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></summary>
+          <div class="answer">Найімовірніше, приймання на цей день уже закрито, день позначений постачальником як неробочий, або меню на нього ще не опубліковане.</div>
         </details>
         <details class="faq-item">
-          <summary>День сірий, напис «Приймання завершено».<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></summary>
-          <div class="answer">Час замовлення на цей день минув. Оберіть інший день.</div>
+          <summary>Забув(-ла) пароль.<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></summary>
+          <div class="answer">Зверніться до адміністрації школи — там створять новий. Самостійно пароль можна тільки змінити, знаючи поточний, у розділі «Налаштування».</div>
         </details>
         <details class="faq-item">
-          <summary>Не вдається додати день у кошик.<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></summary>
-          <div class="answer">Можливо, цей день уже є в кошику або вже замовлений. Перевірте кошик і «Мої замовлення».</div>
+          <summary>Можна замовити в кількох постачальників на один день?<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></summary>
+          <div class="answer">Так. Кошик спільний для всіх постачальників, і оформлення теж одне на все замовлення відразу.</div>
         </details>
         <details class="faq-item">
-          <summary>Треба змінити оформлене замовлення.<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></summary>
-          <div class="answer">Скасуйте день у «Моїх замовленнях» і замовте його заново.</div>
+          <summary>Чому в кошику страва показана з назвою постачальника в дужках?<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></summary>
+          <div class="answer">Кошик групує позиції по днях, а не по постачальниках, і на один день може припадати кілька постачальників одразу. Дужки з назвою допомагають не сплутати, від кого страва.</div>
         </details>
         <details class="faq-item">
-          <summary>Написано «Меню ще не опубліковане».<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></summary>
-          <div class="answer">Постачальник ще готує меню. Загляньте пізніше.</div>
+          <summary>Я скасував(-ла) страву — гроші повернуться?<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></summary>
+          <div class="answer">Оплата на сайті не проводиться, тож повернення коштів вирішується поза сайтом, за домовленістю зі школою чи постачальником.</div>
+        </details>
+        <details class="faq-item">
+          <summary>Чи бачить постачальник мої контакти?<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></summary>
+          <div class="answer">Ні. Постачальнику доступні лише прізвище учня, клас і сам склад замовлення — цього достатньо для видачі харчування на кухні.</div>
         </details>
       </div>
     </section>
 
     <footer class="page-footer">
-      Інше питання? Напишіть на сайті в розділі «Довідка» → «Допомога»: відповідь прийде на вашу пошту.
+      Питання, яких тут немає? Скористайтесь формою «Поставити питання» на сторінці «Довідка» сайту — відповідь надійде на пошту.
     </footer>
 
   </main>
