@@ -192,6 +192,7 @@ class MenuTemplateService
             $newSection = $menuDay->sections()->create([
                 'type' => $section->type,
                 'title' => $section->title,
+                'price' => $section->price,
                 'sort' => $section->sort,
             ]);
 

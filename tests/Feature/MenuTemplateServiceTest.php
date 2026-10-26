@@ -57,6 +57,7 @@ class MenuTemplateServiceTest extends TestCase
         $this->assertTrue($monday->is_working_day);
         $this->assertCount(1, $monday->sections);
         $this->assertSame('Комплекс №1', $monday->sections->first()->title);
+        $this->assertSame('85.00', $monday->sections->first()->price);
         $this->assertCount(2, $monday->sections->first()->sectionDishes);
 
         $saturday = MenuDay::query()->whereDate('date', '2026-08-22')->firstOrFail();
@@ -175,6 +176,7 @@ class MenuTemplateServiceTest extends TestCase
             $section = $day->sections()->create([
                 'type' => MenuSectionType::Complex,
                 'title' => 'Комплекс №1',
+                'price' => 85,
                 'sort' => 0,
             ]);
 
