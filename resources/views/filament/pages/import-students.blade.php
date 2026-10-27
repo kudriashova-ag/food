@@ -1,6 +1,8 @@
 @php
     $rows = $this->getRows();
     $summary = $this->getSummary();
+    // Режим «лише паролі»: інші лічильники й колонки там нічого не означають.
+    $passwordsOnly = $this->passwordsOnly();
 @endphp
 
 <x-filament-panels::page>
@@ -18,7 +20,11 @@
             <x-filament::section>
                 <x-slot name="heading">Файл не розпізнано</x-slot>
                 <p class="text-sm text-gray-500 dark:text-gray-400">
-                    У шапці мають бути колонки «ПІБ» і «Логін». Перевірте, що перший рядок файлу — це заголовки.
+                    @if ($passwordsOnly)
+                        У шапці мають бути колонки «Логін» і «Пароль». Перевірте, що перший рядок файлу — це заголовки.
+                    @else
+                        У шапці мають бути колонки «ПІБ» і «Логін». Перевірте, що перший рядок файлу — це заголовки.
+                    @endif
                 </p>
             </x-filament::section>
         @else
@@ -29,14 +35,21 @@
                 </x-slot>
 
                 <div class="mb-4 flex flex-wrap gap-6 text-sm">
-                    <div>
-                        <div class="text-gray-500 dark:text-gray-400">Створиться</div>
-                        <div class="text-2xl font-semibold text-success-600">{{ $summary['create'] }}</div>
-                    </div>
-                    <div>
-                        <div class="text-gray-500 dark:text-gray-400">Оновиться</div>
-                        <div class="text-2xl font-semibold text-info-600">{{ $summary['update'] }}</div>
-                    </div>
+                    @if ($passwordsOnly)
+                        <div>
+                            <div class="text-gray-500 dark:text-gray-400">Оновиться пароль</div>
+                            <div class="text-2xl font-semibold text-info-600">{{ $summary['password'] }}</div>
+                        </div>
+                    @else
+                        <div>
+                            <div class="text-gray-500 dark:text-gray-400">Створиться</div>
+                            <div class="text-2xl font-semibold text-success-600">{{ $summary['create'] }}</div>
+                        </div>
+                        <div>
+                            <div class="text-gray-500 dark:text-gray-400">Оновиться</div>
+                            <div class="text-2xl font-semibold text-info-600">{{ $summary['update'] }}</div>
+                        </div>
+                    @endif
                     <div>
                         <div class="text-gray-500 dark:text-gray-400">З помилками</div>
                         <div class="text-2xl font-semibold {{ $summary['error'] > 0 ? 'text-danger-600' : '' }}">
@@ -51,10 +64,14 @@
                             <tr>
                                 <th class="py-2 pr-3 font-medium">Рядок</th>
                                 <th class="py-2 pr-3 font-medium">ПІБ</th>
-                                <th class="py-2 pr-3 font-medium">Клас</th>
+                                @unless ($passwordsOnly)
+                                    <th class="py-2 pr-3 font-medium">Клас</th>
+                                @endunless
                                 <th class="py-2 pr-3 font-medium">Логін</th>
-                                <th class="py-2 pr-3 font-medium">E-mail</th>
-                                <th class="py-2 pr-3 font-medium">Пароль</th>
+                                @unless ($passwordsOnly)
+                                    <th class="py-2 pr-3 font-medium">E-mail</th>
+                                    <th class="py-2 pr-3 font-medium">Пароль</th>
+                                @endunless
                                 <th class="py-2 font-medium">Дія</th>
                             </tr>
                         </thead>
@@ -63,18 +80,22 @@
                                 <tr @class(['bg-danger-50/50 dark:bg-danger-500/10' => ! $row->isValid()])>
                                     <td class="py-1.5 pr-3 text-gray-400">{{ $row->number }}</td>
                                     <td class="py-1.5 pr-3">{{ $row->fullName ?? '—' }}</td>
-                                    <td class="py-1.5 pr-3">{{ $row->className() ?? '—' }}</td>
+                                    @unless ($passwordsOnly)
+                                        <td class="py-1.5 pr-3">{{ $row->className() ?? '—' }}</td>
+                                    @endunless
                                     <td class="py-1.5 pr-3 font-mono text-xs">{{ $row->login ?? '—' }}</td>
-                                    <td class="py-1.5 pr-3 text-gray-500">{{ $row->email ?? '—' }}</td>
-                                    {{-- Сам пароль не показуємо — лише звідки він візьметься. --}}
-                                    <td class="py-1.5 pr-3 text-gray-500">
-                                        {{ $row->password === null ? 'згенерується' : 'з файлу' }}
-                                    </td>
+                                    @unless ($passwordsOnly)
+                                        <td class="py-1.5 pr-3 text-gray-500">{{ $row->email ?? '—' }}</td>
+                                        {{-- Сам пароль не показуємо — лише звідки він візьметься. --}}
+                                        <td class="py-1.5 pr-3 text-gray-500">
+                                            {{ $row->password === null ? 'згенерується' : 'з файлу' }}
+                                        </td>
+                                    @endunless
                                     <td class="py-1.5">
                                         @if ($row->isValid())
                                             <span @class([
                                                 'text-success-600' => $row->action === \App\Services\Import\StudentImportRow::ACTION_CREATE,
-                                                'text-info-600' => $row->action === \App\Services\Import\StudentImportRow::ACTION_UPDATE,
+                                                'text-info-600' => in_array($row->action, [\App\Services\Import\StudentImportRow::ACTION_UPDATE, \App\Services\Import\StudentImportRow::ACTION_PASSWORD], true),
                                             ])>{{ $row->actionLabel() }}</span>
                                         @else
                                             <span class="text-danger-600">{{ $row->error }}</span>

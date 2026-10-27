@@ -9,6 +9,9 @@ final class StudentImportRow
 
     public const ACTION_UPDATE = 'update';
 
+    /** Режим «лише паролі»: у наявного учня змінюється тільки пароль. */
+    public const ACTION_PASSWORD = 'password';
+
     public const ACTION_ERROR = 'error';
 
     public function __construct(
@@ -47,6 +50,7 @@ final class StudentImportRow
         return match ($this->action) {
             self::ACTION_CREATE => 'Створиться',
             self::ACTION_UPDATE => 'Оновиться',
+            self::ACTION_PASSWORD => 'Оновиться пароль',
             default => 'Помилка',
         };
     }

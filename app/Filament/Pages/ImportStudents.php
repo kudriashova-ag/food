@@ -9,11 +9,13 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Collection;
@@ -76,12 +78,19 @@ class ImportStudents extends Page implements HasForms
                             ->live()
                             ->columnSpanFull(),
 
+                        Toggle::make('passwords_only')
+                            ->label('Лише оновити паролі')
+                            ->live()
+                            ->helperText('За логіном оновлюється тільки пароль. ПІБ, класи й інше не змінюються, нові учні не створюються. Потрібні колонки «Логін» і «Пароль».')
+                            ->columnSpanFull(),
+
                         Select::make('academic_year')
                             ->label('Навчальний рік')
                             ->options(fn (): array => collect(range(now()->year - 1, now()->year + 1))
                                 ->mapWithKeys(fn (int $year): array => [$year => $year.'/'.substr((string) ($year + 1), 2)])
                                 ->all())
-                            ->required()
+                            ->required(fn (Get $get): bool => ! $get('passwords_only'))
+                            ->hidden(fn (Get $get): bool => (bool) $get('passwords_only'))
                             ->helperText('Класи з файлу створяться в цьому році.'),
                     ]),
             ])
@@ -100,7 +109,13 @@ class ImportStudents extends Page implements HasForms
             return collect();
         }
 
-        return app(StudentImportService::class)->parse($this->filePath());
+        return app(StudentImportService::class)->parse($this->filePath(), $this->passwordsOnly());
+    }
+
+    /** Режим «лише паролі»: за логіном змінюється тільки пароль. */
+    public function passwordsOnly(): bool
+    {
+        return (bool) ($this->data['passwords_only'] ?? false);
     }
 
     /** @return array{create: int, update: int, error: int, total: int} */
@@ -142,18 +157,25 @@ class ImportStudents extends Page implements HasForms
             rows: $rows,
             actor: auth()->user(),
             filename: basename((string) $this->filePath()),
-            academicYear: (int) $this->data['academic_year'],
+            academicYear: (int) ($this->data['academic_year'] ?? now()->year),
+            passwordsOnly: $this->passwordsOnly(),
         );
 
         $batch = $result['batch'];
         $credentials = $result['credentials'];
 
-        $this->lastResult = sprintf(
-            'Створено: %d, оновлено: %d, пропущено через помилки: %d.',
-            $batch->created_count,
-            $batch->updated_count,
-            $batch->skipped_count,
-        );
+        $this->lastResult = $this->passwordsOnly()
+            ? sprintf(
+                'Оновлено паролів: %d, пропущено через помилки: %d.',
+                $batch->updated_count,
+                $batch->skipped_count,
+            )
+            : sprintf(
+                'Створено: %d, оновлено: %d, пропущено через помилки: %d.',
+                $batch->created_count,
+                $batch->updated_count,
+                $batch->skipped_count,
+            );
 
         $this->credentialsPath = $credentials->isNotEmpty()
             ? $this->storeCredentials($credentials, $batch->id)
@@ -189,6 +211,14 @@ class ImportStudents extends Page implements HasForms
     private function confirmationText(): string
     {
         $summary = $this->getSummary();
+
+        if ($this->passwordsOnly()) {
+            return sprintf(
+                'Буде оновлено паролів: %d. Рядків з помилками: %d — вони будуть пропущені.',
+                $summary['password'],
+                $summary['error'],
+            );
+        }
 
         return sprintf(
             'Буде створено %d, оновлено %d. Рядків з помилками: %d — вони будуть пропущені.',

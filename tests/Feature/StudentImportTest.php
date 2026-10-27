@@ -244,6 +244,75 @@ class StudentImportTest extends TestCase
         $this->assertTrue($rows->isEmpty());
     }
 
+    public function test_passwords_only_mode_changes_just_the_password(): void
+    {
+        $student = $this->existingStudent('ivanenko.mariia', 'Іваненко Марія');
+        $classId = $student->school_class_id;
+
+        // Файл зі школи: ПІБ і клас тут інші, але в цьому режимі їх не чіпаємо.
+        $rows = $this->service->parse($this->csv([
+            'ПІБ;Клас;Логін;Пароль;Email',
+            'Іваненко Марія-Анна;9-В;ivanenko.mariia;NoviyParol1;mama@example.com',
+        ]), passwordsOnly: true);
+
+        $this->assertSame(StudentImportRow::ACTION_PASSWORD, $rows->sole()->action);
+
+        $result = $this->service->apply($rows, null, 'paroli.xlsx', 2026, passwordsOnly: true);
+
+        $this->assertSame(1, $result['batch']->updated_count);
+        $this->assertTrue($result['credentials']->isEmpty());
+
+        $student->refresh();
+        $user = $student->user->fresh();
+
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('NoviyParol1', $user->password));
+        $this->assertSame('NoviyParol1', $user->plain_password);
+        $this->assertSame('Іваненко Марія', $student->full_name);
+        $this->assertSame($classId, $student->school_class_id);
+        $this->assertNull($user->email);
+    }
+
+    public function test_passwords_only_mode_does_not_create_unknown_students(): void
+    {
+        $rows = $this->service->parse($this->csv([
+            'ПІБ;Клас;Логін;Пароль',
+            'Нова Учениця;5-А;nova.uchenytsia;Parol12345',
+        ]), passwordsOnly: true);
+
+        $this->assertSame('Учня з таким логіном немає на сайті', $rows->sole()->error);
+
+        $result = $this->service->apply($rows, null, 'paroli.xlsx', 2026, passwordsOnly: true);
+
+        $this->assertSame(0, $result['batch']->updated_count);
+        $this->assertSame(1, $result['batch']->skipped_count);
+        $this->assertFalse(User::query()->where('login', 'nova.uchenytsia')->exists());
+    }
+
+    public function test_passwords_only_mode_needs_login_and_password_columns(): void
+    {
+        $rows = $this->service->parse($this->csv([
+            'ПІБ;Клас;Логін',
+            'Іваненко Марія;5-А;ivanenko.mariia',
+        ]), passwordsOnly: true);
+
+        $this->assertTrue($rows->isEmpty());
+    }
+
+    public function test_passwords_only_mode_rejects_empty_and_short_passwords(): void
+    {
+        $this->existingStudent('ivanenko.mariia', 'Іваненко Марія');
+        $this->existingStudent('petrenko.ivan', 'Петренко Іван');
+
+        $rows = $this->service->parse($this->csv([
+            'Логін;Пароль',
+            'ivanenko.mariia;',
+            'petrenko.ivan;123',
+        ]), passwordsOnly: true);
+
+        $this->assertSame('Порожній пароль', $rows[0]->error);
+        $this->assertSame('Пароль коротший за 6 символів', $rows[1]->error);
+    }
+
     /** @param array<int, string> $lines */
     private function csv(array $lines): string
     {

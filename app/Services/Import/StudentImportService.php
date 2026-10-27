@@ -34,8 +34,12 @@ class StudentImportService
     /** Коротший пароль учень не запам'ятає, а надто короткий ще й небезпечний. */
     public const MIN_PASSWORD = 6;
 
-    /** @return Collection<int, StudentImportRow> */
-    public function parse(string $path): Collection
+    /**
+     * @param  bool  $passwordsOnly  режим «лише оновити паролі»: за логіном змінюється
+     *                               тільки пароль, решта даних і нові учні не чіпаються
+     * @return Collection<int, StudentImportRow>
+     */
+    public function parse(string $path, bool $passwordsOnly = false): Collection
     {
         $sheets = Excel::toArray(new RawRowsImport(), $path);
         $rows = collect($sheets[0] ?? []);
@@ -44,7 +48,7 @@ class StudentImportService
             return collect();
         }
 
-        $map = $this->mapColumns($rows->first());
+        $map = $this->mapColumns($rows->first(), $passwordsOnly);
 
         if ($map === null) {
             return collect();
@@ -56,8 +60,10 @@ class StudentImportService
             ->skip(1)
             ->values()
             // Звичайне замикання, а не стрілкове: $seenLogins має накопичуватися між рядками.
-            ->map(function (array $row, int $index) use ($map, &$seenLogins): StudentImportRow {
-                return $this->parseRow($row, $map, $index + 2, $seenLogins);
+            ->map(function (array $row, int $index) use ($map, $passwordsOnly, &$seenLogins): StudentImportRow {
+                return $passwordsOnly
+                    ? $this->parsePasswordRow($row, $map, $index + 2, $seenLogins)
+                    : $this->parseRow($row, $map, $index + 2, $seenLogins);
             })
             ->filter(fn (StudentImportRow $row): bool => $row->fullName !== null || $row->login !== null || $row->error !== null)
             ->values();
@@ -65,13 +71,14 @@ class StudentImportService
 
     /**
      * @param  Collection<int, StudentImportRow>  $rows
-     * @return array{create: int, update: int, error: int, total: int}
+     * @return array{create: int, update: int, password: int, error: int, total: int}
      */
     public function summarize(Collection $rows): array
     {
         return [
             'create' => $rows->where('action', StudentImportRow::ACTION_CREATE)->count(),
             'update' => $rows->where('action', StudentImportRow::ACTION_UPDATE)->count(),
+            'password' => $rows->where('action', StudentImportRow::ACTION_PASSWORD)->count(),
             'error' => $rows->where('action', StudentImportRow::ACTION_ERROR)->count(),
             'total' => $rows->count(),
         ];
@@ -83,14 +90,25 @@ class StudentImportService
      * @param  Collection<int, StudentImportRow>  $rows
      * @return array{batch: ImportBatch, credentials: Collection<int, array{full_name: string, class: string, login: string, password: string}>}
      */
-    public function apply(Collection $rows, ?User $actor, string $filename, int $academicYear): array
+    public function apply(Collection $rows, ?User $actor, string $filename, int $academicYear, bool $passwordsOnly = false): array
     {
         $credentials = collect();
         $created = 0;
         $updated = 0;
 
-        DB::transaction(function () use ($rows, $academicYear, $credentials, &$created, &$updated): void {
+        DB::transaction(function () use ($rows, $academicYear, $passwordsOnly, $credentials, &$created, &$updated): void {
             foreach ($rows->filter(fn (StudentImportRow $row): bool => $row->isValid()) as $row) {
+                // Лише пароль: ПІБ, клас і картку учня не чіпаємо. Модель User
+                // сама хешує пароль і запам'ятовує його для картки учня.
+                if ($passwordsOnly) {
+                    User::query()->where('login', $row->login)->firstOrFail()
+                        ->update(['password' => $row->password]);
+
+                    $updated++;
+
+                    continue;
+                }
+
                 $class = SchoolClass::query()->firstOrCreate([
                     'academic_year' => $academicYear,
                     'grade' => $row->grade,
@@ -178,7 +196,7 @@ class StudentImportService
      * @param  array<int, mixed>  $header
      * @return array<string, int>|null
      */
-    private function mapColumns(array $header): ?array
+    private function mapColumns(array $header, bool $passwordsOnly = false): ?array
     {
         $map = [];
 
@@ -194,8 +212,64 @@ class StudentImportService
             }
         }
 
-        // Без ПІБ і логіна файл безглуздий.
+        // Для оновлення паролів досить логіна й пароля, для звичайного імпорту — ПІБ і логіна.
+        if ($passwordsOnly) {
+            return isset($map['login'], $map['password']) ? $map : null;
+        }
+
         return isset($map['full_name'], $map['login']) ? $map : null;
+    }
+
+    /**
+     * Рядок режиму «лише паролі»: учень має вже бути на сайті, клас і e-mail не перевіряємо.
+     *
+     * @param  array<int, mixed>  $row
+     * @param  array<string, int>  $map
+     * @param  array<string, true>  $seenLogins
+     */
+    private function parsePasswordRow(array $row, array $map, int $number, array &$seenLogins): StudentImportRow
+    {
+        $fullName = $this->cell($row, $map, 'full_name');
+        $login = $this->cell($row, $map, 'login');
+        $password = $this->cell($row, $map, 'password');
+
+        $parsed = new StudentImportRow(
+            number: $number,
+            fullName: $fullName ?: null,
+            login: $login ?: null,
+            password: $password ?: null,
+            action: StudentImportRow::ACTION_PASSWORD,
+        );
+
+        if ($login === '') {
+            return $parsed->fail('Порожній логін');
+        }
+
+        if (isset($seenLogins[$login])) {
+            return $parsed->fail("Логін «{$login}» повторюється у файлі");
+        }
+
+        $seenLogins[$login] = true;
+
+        if ($password === '') {
+            return $parsed->fail('Порожній пароль');
+        }
+
+        if (mb_strlen($password) < self::MIN_PASSWORD) {
+            return $parsed->fail('Пароль коротший за '.self::MIN_PASSWORD.' символів');
+        }
+
+        $existing = User::query()->where('login', $login)->first();
+
+        if ($existing === null) {
+            return $parsed->fail('Учня з таким логіном немає на сайті');
+        }
+
+        if ($existing->role !== UserRole::Student) {
+            return $parsed->fail("Логін «{$login}» уже зайнятий службовим акаунтом");
+        }
+
+        return $parsed;
     }
 
     /**

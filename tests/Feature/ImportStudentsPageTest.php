@@ -52,9 +52,19 @@ class ImportStudentsPageTest extends TestCase
             ->set('data.file', $this->file());
 
         $this->assertSame(
-            ['create' => 2, 'update' => 0, 'error' => 0, 'total' => 2],
+            ['create' => 2, 'update' => 0, 'password' => 0, 'error' => 0, 'total' => 2],
             $page->instance()->getSummary(),
         );
+    }
+
+    public function test_passwords_only_toggle_switches_the_preview(): void
+    {
+        // Учнів із файлу на сайті немає — у режимі «лише паролі» це помилки, а не створення.
+        $page = Livewire::test(ImportStudents::class)
+            ->set('data.passwords_only', true)
+            ->set('data.file', $this->file());
+
+        $this->assertSame(0, $page->instance()->getSummary()['create']);
     }
 
     public function test_import_writes_the_students(): void
