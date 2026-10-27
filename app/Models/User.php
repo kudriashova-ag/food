@@ -6,11 +6,13 @@ use App\Enums\UserRole;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Hash;
 
 class User extends Authenticatable implements FilamentUser
 {
@@ -30,6 +32,7 @@ class User extends Authenticatable implements FilamentUser
 
     protected $hidden = [
         'password',
+        'plain_password',
         'remember_token',
     ];
 
@@ -38,11 +41,46 @@ class User extends Authenticatable implements FilamentUser
         'is_active' => true,
     ];
 
+    /** Пароль у відкритому вигляді з останнього встановлення — живе лише до збереження. */
+    private ?string $pendingPlainPassword = null;
+
+    protected static function booted(): void
+    {
+        // Адміністратор має бачити пароль учня в картці, тож для учнів
+        // зберігаємо його ще й зашифрованим (див. plain_password). Для інших ролей
+        // і для пароля, переданого вже хешем, не зберігаємо: його не відновити.
+        static::saving(function (User $user): void {
+            if ($user->isDirty('password')) {
+                $user->plain_password = $user->isStudent() ? $user->pendingPlainPassword : null;
+                $user->pendingPlainPassword = null;
+            }
+        });
+    }
+
+    /**
+     * Хешує пароль, як це робив каст «hashed», і запам'ятовує відкритий
+     * текст для plain_password. Уже готовий хеш пропускається як є.
+     */
+    protected function password(): Attribute
+    {
+        return Attribute::make(set: function (?string $value): ?string {
+            if ($value === null || Hash::isHashed($value)) {
+                $this->pendingPlainPassword = null;
+
+                return $value;
+            }
+
+            $this->pendingPlainPassword = $value;
+
+            return Hash::make($value);
+        });
+    }
+
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'plain_password' => 'encrypted',
             'must_change_password' => 'boolean',
             'role' => UserRole::class,
             'is_active' => 'boolean',

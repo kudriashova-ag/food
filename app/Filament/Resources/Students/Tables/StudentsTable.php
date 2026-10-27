@@ -17,7 +17,6 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class StudentsTable
@@ -129,10 +128,11 @@ class StudentsTable
                     ->required()
                     ->minLength(6)
                     ->default(fn (): string => Str::password(8, symbols: false))
-                    ->helperText('Передайте класному керівнику — після закриття вікна пароль не відновити.'),
+                    ->helperText('Пароль потім буде видно в картці учня.'),
             ])
             ->action(function (Student $record, array $data): void {
-                $record->user?->update(['password' => Hash::make($data['password'])]);
+                // Без Hash::make: модель сама хешує й запам'ятовує пароль для картки учня.
+                $record->user?->update(['password' => $data['password']]);
 
                 Notification::make()->title('Пароль оновлено')->success()->send();
             });

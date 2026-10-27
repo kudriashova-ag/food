@@ -77,17 +77,20 @@ class StudentForm
                             ->maxLength(255)
                             ->helperText('Опційно. Без нього пароль скидає адміністратор вручну.'),
 
+                        // Пароль показується відкрито: адміністратор має бачити, який пароль
+                        // у учня. Для облікових записів, створених до появи цієї можливості,
+                        // поле порожнє — пароль невідомий, доки його не задати заново.
                         TextInput::make('password')
                             ->label('Пароль')
-                            ->password()
-                            ->revealable()
                             ->minLength(6)
                             ->default(fn (): string => Str::password(8, symbols: false))
                             ->required(fn (string $operation): bool => $operation === 'create')
                             ->dehydrated(fn (?string $state): bool => filled($state))
-                            ->helperText(fn (string $operation): string => $operation === 'create'
-                                ? 'Запишіть пароль — потім він не показується.'
-                                : 'Заповніть, щоб задати новий пароль.'),
+                            ->helperText(fn (string $operation, ?string $state): string => match (true) {
+                                $operation === 'create' => 'Пароль потім буде видно тут, у картці учня.',
+                                blank($state) => 'Пароль невідомий: його задали до того, як паролі почали зберігатися. Впишіть новий, щоб задати.',
+                                default => 'Поточний пароль учня. Змініть, щоб задати новий.',
+                            }),
                     ]),
             ]);
     }

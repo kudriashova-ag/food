@@ -18,6 +18,7 @@ class EditStudent extends EditRecord
 
         $data['login'] = $student->user?->login;
         $data['email'] = $student->user?->email;
+        $data['password'] = $student->user?->plain_password;
         $data['is_teacher'] = $student->isTeacher();
 
         return $data;
@@ -26,6 +27,11 @@ class EditStudent extends EditRecord
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
         /** @var Student $record */
+        // Поле пароля заповнене поточним паролем — незмінений не перезаписуємо.
+        if (($data['password'] ?? null) === $record->user?->plain_password) {
+            unset($data['password']);
+        }
+
         $record->user?->update(array_filter([
             'name' => $data['full_name'],
             'login' => $data['login'],

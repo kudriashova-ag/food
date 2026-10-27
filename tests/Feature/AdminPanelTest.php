@@ -8,6 +8,7 @@ use App\Filament\Resources\Orders\Pages\ListOrders;
 use App\Filament\Resources\Orders\Pages\ViewOrder;
 use App\Filament\Resources\SchoolClasses\Pages\ListSchoolClasses;
 use App\Filament\Resources\Students\Pages\CreateStudent;
+use App\Filament\Resources\Students\Pages\EditStudent;
 use App\Filament\Resources\Students\Pages\ListStudents;
 use App\Filament\Resources\Suppliers\Pages\CreateSupplier;
 use App\Models\Dish;
@@ -96,6 +97,71 @@ class AdminPanelTest extends TestCase
 
         $this->assertSame('ivanenko.mariia', $student->user->login);
         $this->assertSame(UserRole::Student, $student->user->role);
+    }
+
+    public function test_student_password_is_shown_on_the_edit_page(): void
+    {
+        $class = SchoolClass::create(['grade' => 5, 'letter' => 'А', 'academic_year' => 2026]);
+
+        Livewire::test(CreateStudent::class)
+            ->fillForm([
+                'full_name' => 'Іваненко Марія',
+                'school_class_id' => $class->id,
+                'is_active' => true,
+                'login' => 'ivanenko.mariia',
+                'password' => 'parol123',
+            ])
+            ->call('create');
+
+        $student = Student::query()->firstOrFail();
+
+        // Для входу — і далі хеш, а не відкритий текст.
+        $this->assertTrue(Hash::check('parol123', $student->user->password));
+        $this->assertNotSame('parol123', $student->user->getRawOriginal('plain_password'));
+
+        Livewire::test(EditStudent::class, ['record' => $student->getRouteKey()])
+            ->assertSchemaStateSet(['password' => 'parol123'])
+            ->fillForm(['password' => 'novyi456'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $user = $student->user->fresh();
+
+        $this->assertTrue(Hash::check('novyi456', $user->password));
+        $this->assertSame('novyi456', $user->plain_password);
+    }
+
+    public function test_unchanged_password_field_keeps_the_password(): void
+    {
+        $student = $this->studentWithPassword('parol123');
+        $hash = $student->user->password;
+
+        Livewire::test(EditStudent::class, ['record' => $student->getRouteKey()])
+            ->fillForm(['full_name' => 'Іваненко Марія Петрівна'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame($hash, $student->user->fresh()->password);
+    }
+
+    public function test_password_reset_from_the_table_is_shown_on_the_edit_page(): void
+    {
+        $student = $this->studentWithPassword('parol123');
+
+        Livewire::test(ListStudents::class)
+            ->callTableAction('resetPassword', $student, data: ['password' => 'skynutyi1'])
+            ->assertHasNoTableActionErrors();
+
+        $this->assertSame('skynutyi1', $student->user->fresh()->plain_password);
+    }
+
+    public function test_password_is_not_kept_for_non_students_or_when_given_as_a_hash(): void
+    {
+        $this->assertNull($this->admin->fresh()->plain_password);
+
+        $student = $this->studentWithPassword(Hash::make('parol123'));
+
+        $this->assertNull($student->user->fresh()->plain_password);
     }
 
     public function test_teacher_is_created_without_a_class(): void
@@ -302,6 +368,22 @@ class AdminPanelTest extends TestCase
             'user_id' => $user->id,
             'full_name' => $name,
             'school_class_id' => $class->id,
+        ]);
+    }
+
+    private function studentWithPassword(string $password): Student
+    {
+        $user = User::create([
+            'name' => 'Іваненко Марія',
+            'login' => 'ivanenko.mariia',
+            'password' => $password,
+            'role' => UserRole::Student,
+        ]);
+
+        return Student::create([
+            'user_id' => $user->id,
+            'full_name' => 'Іваненко Марія',
+            'school_class_id' => SchoolClass::create(['grade' => 5, 'letter' => 'А', 'academic_year' => 2026])->id,
         ]);
     }
 
