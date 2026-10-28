@@ -99,6 +99,44 @@ class SupplierOrdersWeekExportTest extends TestCase
 
         // Рамка навколо комірок даних
         $this->assertSame('thin', $sheet->getStyle('A3')->getBorders()->getBottom()->getBorderStyle());
-        $this->assertSame('thin', $sheet->getStyle('D3')->getBorders()->getRight()->getBorderStyle());
+        // Праворуч від останньої колонки таблиці — товста рамка.
+        $this->assertSame('thick', $sheet->getStyle('D3')->getBorders()->getRight()->getBorderStyle());
+    }
+
+    public function test_days_are_separated_by_thick_borders(): void
+    {
+        $column = fn (string $date, string $title, bool $firstOfDay): array => [
+            'key' => "{$date}|{$title}",
+            'date' => CarbonImmutable::parse($date),
+            'section_title' => $title,
+            'section_type' => MenuSectionType::Choice,
+            'price' => null,
+            'is_complex' => false,
+            'complex_dishes' => null,
+            'first_of_day' => $firstOfDay,
+        ];
+
+        $columns = collect([
+            $column('2026-09-07', 'Перше', true),
+            $column('2026-09-07', 'Напій', false),
+            $column('2026-09-08', 'Перше', true),
+        ]);
+
+        $rows = collect([
+            ['full_name' => 'Іваненко Марія', 'class' => '5-А', 'cells' => []],
+        ]);
+
+        $export = new SupplierOrdersWeekExport($columns, $rows);
+
+        $sheet = (new Spreadsheet())->getActiveSheet();
+        $sheet->fromArray($export->array());
+        $export->styles($sheet);
+
+        // Перша колонка кожного дня (D — понеділок, F — вівторок) — товста ліва рамка.
+        $this->assertSame('thick', $sheet->getStyle('D3')->getBorders()->getLeft()->getBorderStyle());
+        $this->assertSame('thick', $sheet->getStyle('F1')->getBorders()->getLeft()->getBorderStyle());
+        $this->assertSame('thick', $sheet->getStyle('F3')->getBorders()->getLeft()->getBorderStyle());
+        // Усередині дня — звичайна тонка.
+        $this->assertSame('thin', $sheet->getStyle('E3')->getBorders()->getLeft()->getBorderStyle());
     }
 }

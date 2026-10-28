@@ -3,6 +3,7 @@
 namespace App\Services\Reports;
 
 use App\Enums\MenuSectionType;
+use App\Models\MenuDay;
 use App\Models\OrderLine;
 use App\Models\Supplier;
 use Carbon\CarbonImmutable;
@@ -41,33 +42,64 @@ class SupplierOrdersWeekService
             ->with('student.schoolClass')
             ->get();
 
-        if ($lines->isEmpty()) {
-            return ['columns' => collect(), 'rows' => collect()];
-        }
+        // Меню робочих днів: секція має колонку, навіть якщо на неї ніхто не замовив.
+        $menuDays = MenuDay::query()
+            ->where('supplier_id', $supplier->id)
+            ->whereDate('date', '>=', $start->toDateString())
+            ->whereDate('date', '<=', $end->toDateString())
+            ->where('is_working_day', true)
+            ->with('sections.sectionDishes.dish')
+            ->get();
 
         return [
-            'columns' => $this->columns($lines),
+            'columns' => $this->columns($lines, $menuDays),
             'rows' => $this->rows($lines),
         ];
     }
 
     /**
-     * Колонки: унікальні пари (дата, назва секції), впорядковані за датою
-     * й порядком секцій (перше → комплекс → додаткові).
+     * Колонки: секції меню кожного дня плюс секції із замовлень, яких у меню
+     * вже немає (меню змінили після замовлення). Порядок у межах дня:
+     * перше → комплекс → додаткові; first_of_day позначає першу колонку дня,
+     * щоб відокремити дні товстою рамкою.
      *
      * @param  Collection<int, OrderLine>  $lines
-     * @return Collection<int, array{key: string, date: CarbonImmutable, section_title: string, section_type: MenuSectionType|null, price: float|null, is_complex: bool, complex_dishes: string|null}>
+     * @param  Collection<int, MenuDay>  $menuDays
+     * @return Collection<int, array{key: string, date: CarbonImmutable, section_title: string, section_type: MenuSectionType|null, price: float|null, is_complex: bool, complex_dishes: string|null, sort: int, first_of_day: bool}>
      */
-    private function columns(Collection $lines): Collection
+    private function columns(Collection $lines, Collection $menuDays): Collection
     {
-        return $lines
+        $columns = collect();
+
+        foreach ($menuDays as $menuDay) {
+            foreach ($menuDay->sections as $section) {
+                $key = $menuDay->date->toDateString().'|'.$section->title;
+                $isComplex = $section->type === MenuSectionType::Complex;
+                $dishes = $section->sectionDishes->pluck('dish')->filter();
+
+                $columns[$key] ??= [
+                    'key' => $key,
+                    'date' => CarbonImmutable::parse($menuDay->date),
+                    'section_title' => $section->title,
+                    'section_type' => $section->type,
+                    'price' => $isComplex
+                        ? ($section->price !== null ? (float) $section->price : null)
+                        : $this->commonPrice($dishes),
+                    'is_complex' => $isComplex,
+                    'complex_dishes' => $isComplex && $dishes->isNotEmpty() ? $dishes->pluck('name')->implode(', ') : null,
+                    'sort' => (int) $section->sort,
+                ];
+            }
+        }
+
+        $lines
             ->groupBy(fn (OrderLine $line): string => $line->service_date->toDateString().'|'.$this->sectionKey($line))
-            ->map(function (Collection $group): array {
+            ->each(function (Collection $group, string $key) use ($columns): void {
                 $first = $group->first();
                 $isComplex = $first->section_type === MenuSectionType::Complex;
 
-                return [
-                    'key' => $first->service_date->toDateString().'|'.$this->sectionKey($first),
+                $columns[$key] ??= [
+                    'key' => $key,
                     'date' => CarbonImmutable::parse($first->service_date),
                     'section_title' => $first->section_title ?? $first->dish_name,
                     'section_type' => $first->section_type,
@@ -76,16 +108,41 @@ class SupplierOrdersWeekService
                     'is_complex' => $isComplex,
                     // Для комплексу — склад із dish_name ("Комплекс №1: Салат, Котлета…").
                     'complex_dishes' => $isComplex ? $this->complexDishes($first->dish_name) : null,
+                    'sort' => PHP_INT_MAX,
                 ];
-            })
+            });
+
+        $previousDate = null;
+
+        return $columns
             ->values()
-            ->sortBy(fn (array $column): string => sprintf(
-                '%s|%d|%s',
-                $column['date']->toDateString(),
-                $this->sectionOrder($column['section_type']),
-                $column['section_title'],
-            ))
-            ->values();
+            ->sortBy([
+                fn (array $a, array $b): int => $a['date'] <=> $b['date'],
+                fn (array $a, array $b): int => $this->sectionOrder($a['section_type']) <=> $this->sectionOrder($b['section_type']),
+                fn (array $a, array $b): int => $a['sort'] <=> $b['sort'],
+                fn (array $a, array $b): int => strcmp($a['section_title'], $b['section_title']),
+            ])
+            ->values()
+            ->map(function (array $column) use (&$previousDate): array {
+                $date = $column['date']->toDateString();
+                $column['first_of_day'] = $date !== $previousDate;
+                $previousDate = $date;
+
+                return $column;
+            });
+    }
+
+    /**
+     * Ціна для заголовка секції вибору чи додаткових страв: лише якщо в усіх
+     * страв вона однакова (суп 45 грн), інакше в заголовку її не пишемо.
+     *
+     * @param  Collection<int, \App\Models\Dish>  $dishes
+     */
+    private function commonPrice(Collection $dishes): ?float
+    {
+        $prices = $dishes->map(fn ($dish): float => (float) $dish->price)->unique();
+
+        return $prices->count() === 1 ? $prices->first() : null;
     }
 
     /**

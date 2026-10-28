@@ -86,7 +86,7 @@ class SupplierOrdersPageTest extends TestCase
             ->set('data.from', '2026-08-24')
             ->set('data.to', '2026-08-28')
             ->assertDontSee('Іваненко Марія')
-            ->assertSee('Замовлень за цей період немає.');
+            ->assertSee('За цей період немає ні меню, ні замовлень.');
     }
 
     public function test_cancelled_lines_and_other_suppliers_are_not_shown(): void

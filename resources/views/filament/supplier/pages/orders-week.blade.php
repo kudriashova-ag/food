@@ -6,6 +6,12 @@
 
     // Шапка у два рядки, як в Excel: зверху день над усіма його секціями.
     $days = $columns->groupBy(fn (array $column): string => $column['date']->toDateString());
+
+    // Дні відокремлено товстою рамкою, як і в Excel: ліворуч від першої колонки
+    // кожного дня й праворуч від останньої колонки таблиці.
+    $dayEdge = 'border-l-4 border-l-gray-400 dark:border-l-gray-500';
+    $tableEdge = 'border-r-4 border-r-gray-400 dark:border-r-gray-500';
+    $lastKey = $columns->last()['key'] ?? null;
 @endphp
 
 <x-filament-panels::page>
@@ -22,8 +28,8 @@
             Хто що замовив, по днях і секціях меню. Скасовані позиції не враховуються.
         </x-slot>
 
-        @if ($rows->isEmpty())
-            <p class="text-sm text-gray-500 dark:text-gray-400">Замовлень за цей період немає.</p>
+        @if ($columns->isEmpty())
+            <p class="text-sm text-gray-500 dark:text-gray-400">За цей період немає ні меню, ні замовлень.</p>
         @else
             <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-white/10">
                 <table class="w-full border-collapse text-sm">
@@ -35,7 +41,11 @@
 
                             @foreach ($days as $dayColumns)
                                 <th colspan="{{ $dayColumns->count() }}"
-                                    class="border border-gray-200 px-3 py-2 text-center font-semibold capitalize dark:border-white/10">
+                                    @class([
+                                        'border border-gray-200 px-3 py-2 text-center font-semibold capitalize dark:border-white/10',
+                                        $dayEdge,
+                                        $tableEdge => $loop->last,
+                                    ])>
                                     {{ $dayColumns->first()['date']->translatedFormat('l, d.m') }}
                                 </th>
                             @endforeach
@@ -43,7 +53,11 @@
 
                         <tr class="bg-gray-50 dark:bg-white/5">
                             @foreach ($columns as $column)
-                                <th class="min-w-36 border border-gray-200 px-3 py-2 text-left align-top font-medium dark:border-white/10">
+                                <th @class([
+                                        'min-w-36 border border-gray-200 px-3 py-2 text-left align-top font-medium dark:border-white/10',
+                                        $dayEdge => $column['first_of_day'],
+                                        $tableEdge => $column['key'] === $lastKey,
+                                    ])>
                                     {{ $column['section_title'] }}
 
                                     @if ($column['price'] !== null)
@@ -63,19 +77,30 @@
                     </thead>
 
                     <tbody>
-                        @foreach ($rows as $index => $row)
+                        @forelse ($rows as $index => $row)
                             <tr class="hover:bg-gray-50 dark:hover:bg-white/5">
                                 <td class="border border-gray-200 px-2 py-1.5 tabular-nums text-gray-500 dark:border-white/10">{{ $index + 1 }}</td>
                                 <td class="border border-gray-200 px-3 py-1.5 font-medium dark:border-white/10">{{ $row['full_name'] }}</td>
                                 <td class="border border-gray-200 px-3 py-1.5 dark:border-white/10">{{ $row['class'] }}</td>
 
                                 @foreach ($columns as $column)
-                                    <td class="border border-gray-200 px-3 py-1.5 dark:border-white/10">
+                                    <td @class([
+                                            'border border-gray-200 px-3 py-1.5 dark:border-white/10',
+                                            $dayEdge => $column['first_of_day'],
+                                            $tableEdge => $column['key'] === $lastKey,
+                                        ])>
                                         {{ $row['cells'][$column['key']] ?? '' }}
                                     </td>
                                 @endforeach
                             </tr>
-                        @endforeach
+                        @empty
+                            <tr>
+                                <td colspan="{{ 3 + $columns->count() }}"
+                                    class="border border-gray-200 px-3 py-3 text-center text-gray-500 dark:border-white/10 dark:text-gray-400">
+                                    Замовлень за цей період немає.
+                                </td>
+                            </tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>

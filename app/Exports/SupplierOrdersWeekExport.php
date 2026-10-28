@@ -172,6 +172,21 @@ class SupplierOrdersWeekExport implements Export, FromArray, WithColumnWidths, W
             ],
         ]);
 
+        // Дні відокремлено товстою рамкою: ліворуч від першої колонки кожного дня
+        // і праворуч від останньої колонки таблиці.
+        $thick = ['borderStyle' => Border::BORDER_THICK, 'color' => ['rgb' => '3B1A5C']];
+
+        foreach ($this->columns->values() as $index => $column) {
+            if ($column['first_of_day'] ?? false) {
+                $letter = Coordinate::stringFromColumnIndex(self::FIXED_COLUMNS + 1 + $index);
+                $sheet->getStyle("{$letter}1:{$letter}{$lastRow}")->getBorders()->getLeft()->applyFromArray($thick);
+            }
+        }
+
+        if ($this->columns->isNotEmpty()) {
+            $sheet->getStyle("{$lastColumn}1:{$lastColumn}{$lastRow}")->getBorders()->getRight()->applyFromArray($thick);
+        }
+
         // Закріпити шапку й перші три колонки.
         $sheet->freezePane('D3');
 

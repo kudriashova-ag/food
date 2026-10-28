@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Enums\MenuSectionType;
 use App\Enums\OrderLineStatus;
 use App\Enums\UserRole;
+use App\Models\Dish;
+use App\Models\MenuDay;
 use App\Models\Order;
 use App\Models\SchoolClass;
 use App\Models\Student;
@@ -65,6 +67,43 @@ class SupplierOrdersWeekServiceTest extends TestCase
         $report = $this->service->build($this->supplier, self::FROM, self::TO);
 
         $this->assertSame(['Перше', 'Комплекс №1', 'Напій'], $report['columns']->pluck('section_title')->all());
+    }
+
+    public function test_menu_sections_get_columns_even_without_orders(): void
+    {
+        $student = $this->pupil('Іваненко Марія', 5, 'А');
+
+        // Меню на понеділок і вівторок; замовлено лише комплекс у понеділок.
+        $this->menu(self::FROM);
+        $this->menu('2026-09-08');
+        $this->line($student, self::FROM, MenuSectionType::Complex, 'Комплекс', 'Комплекс: Салат, Котлета', 230);
+
+        $report = $this->service->build($this->supplier, self::FROM, self::TO);
+
+        $this->assertSame(
+            ['Перше', 'Комплекс', 'Напій', 'Перше', 'Комплекс', 'Напій'],
+            $report['columns']->pluck('section_title')->all(),
+        );
+        $this->assertSame([true, false, false, true, false, false], $report['columns']->pluck('first_of_day')->all());
+
+        $soup = $report['columns']->first();
+        $this->assertSame(45.0, $soup['price']);
+
+        $complex = $report['columns'][1];
+        $this->assertSame(230.0, $complex['price']);
+        $this->assertSame('Салат, Котлета', $complex['complex_dishes']);
+
+        $this->assertSame('Комплекс', $report['rows']->sole()['cells'][self::FROM.'|Комплекс']);
+    }
+
+    public function test_menu_columns_are_returned_when_nobody_ordered(): void
+    {
+        $this->menu(self::FROM);
+
+        $report = $this->service->build($this->supplier, self::FROM, self::TO);
+
+        $this->assertCount(3, $report['columns']);
+        $this->assertTrue($report['rows']->isEmpty());
     }
 
     public function test_complex_cell_says_just_complex_and_subtitle_holds_the_composition(): void
@@ -180,6 +219,35 @@ class SupplierOrdersWeekServiceTest extends TestCase
             'full_name' => $name,
             'school_class_id' => SchoolClass::query()->firstOrCreate(['academic_year' => 2026, 'grade' => $grade, 'letter' => $letter])->id,
         ]);
+    }
+
+    /** Меню дня в порядку, як його склав постачальник: комплекс, напій, перше. */
+    private function menu(string $date): MenuDay
+    {
+        $menuDay = MenuDay::create([
+            'supplier_id' => $this->supplier->id,
+            'date' => $date,
+            'is_working_day' => true,
+            'published_at' => now(),
+        ]);
+
+        $dish = fn (string $name, float $price): Dish => Dish::query()->firstOrCreate(
+            ['supplier_id' => $this->supplier->id, 'name' => $name],
+            ['price' => $price],
+        );
+
+        $complex = $menuDay->sections()->create(['type' => MenuSectionType::Complex, 'title' => 'Комплекс', 'price' => 230, 'sort' => 0]);
+        $complex->sectionDishes()->create(['dish_id' => $dish('Салат', 0)->id, 'sort' => 0]);
+        $complex->sectionDishes()->create(['dish_id' => $dish('Котлета', 0)->id, 'sort' => 1]);
+
+        $drink = $menuDay->sections()->create(['type' => MenuSectionType::Extra, 'title' => 'Напій', 'sort' => 1]);
+        $drink->sectionDishes()->create(['dish_id' => $dish('Компот', 15)->id, 'sort' => 0]);
+
+        $soup = $menuDay->sections()->create(['type' => MenuSectionType::Choice, 'title' => 'Перше', 'sort' => 2]);
+        $soup->sectionDishes()->create(['dish_id' => $dish('Борщ', 45)->id, 'sort' => 0]);
+        $soup->sectionDishes()->create(['dish_id' => $dish('Суп з локшиною', 45)->id, 'sort' => 1]);
+
+        return $menuDay;
     }
 
     private function teacher(string $name): Student
