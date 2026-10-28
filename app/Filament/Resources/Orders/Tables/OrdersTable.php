@@ -116,7 +116,11 @@ class OrdersTable
             ->modalHeading(fn (Order $record): string => "Видалити замовлення {$record->number}?")
             ->modalDescription('Замовлення зникне повністю, разом з усіма стравами — і в учня, і в постачальника, і у звітах. Відновити його не вийде. Якщо потрібно лише відмінити харчування, скористайтеся скасуванням.')
             ->modalSubmitActionLabel('Видалити')
-            ->before(fn (Order $record) => OrderDeletion::log($record))
+            ->using(function (Order $record): bool {
+                OrderDeletion::delete($record);
+
+                return true;
+            })
             ->successNotificationTitle('Замовлення видалено');
     }
 

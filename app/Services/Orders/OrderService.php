@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\Student;
 use App\Notifications\OrderPlaced;
 use App\Services\Deadlines\DeadlineService;
+use App\Services\GoogleSheets\OrderSheetSync;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -85,6 +86,8 @@ class OrderService
         });
 
         $this->recordActivity($order);
+
+        OrderSheetSync::placed($order);
 
         $this->notifyStudent($student, new OrderPlaced($order));
 

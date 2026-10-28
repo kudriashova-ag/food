@@ -9,6 +9,7 @@ use App\Models\Student;
 use App\Models\User;
 use App\Notifications\OrderLinesCancelled;
 use App\Services\Deadlines\DeadlineService;
+use App\Services\GoogleSheets\OrderSheetSync;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -80,6 +81,8 @@ class CancellationService
         });
 
         $this->recordActivity($cancelled, $actor, $reason, $bypassDeadline);
+
+        OrderSheetSync::cancelled($cancelled, $actor, $reason);
 
         if ($notify) {
             $this->notify($line->student, collect([$cancelled]), $actor, $reason);

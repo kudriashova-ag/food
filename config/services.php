@@ -46,4 +46,13 @@ return [
         'api_url' => env('TELEGRAM_API_URL', 'https://api.telegram.org'),
     ],
 
+    /*
+    | Google Таблиця замовлень. Ключ сервісного акаунта — JSON-файл на сервері
+    | (поза git); шлях відносний від кореня проєкту або абсолютний. Саму таблицю
+    | адміністратор вказує в «Налаштуваннях» адмінки.
+    */
+    'google_sheets' => [
+        'credentials' => env('GOOGLE_SERVICE_ACCOUNT_JSON'),
+    ],
+
 ];

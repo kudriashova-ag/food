@@ -3,6 +3,7 @@
 namespace App\Services\Orders;
 
 use App\Models\Order;
+use App\Services\GoogleSheets\OrderSheetSync;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -12,6 +13,18 @@ use Illuminate\Support\Facades\DB;
  */
 class OrderDeletion
 {
+    public static function delete(Order $order): void
+    {
+        static::log($order);
+
+        // Журнал Google Таблиці — до видалення (поки є позиції), вкладки тижнів — після.
+        $refreshSheets = OrderSheetSync::deleting($order, auth()->user());
+
+        $order->delete();
+
+        $refreshSheets();
+    }
+
     public static function log(Order $order): void
     {
         $order->loadMissing('lines', 'student');
@@ -41,6 +54,8 @@ class OrderDeletion
     {
         $count = Order::query()->count();
 
+        $refreshSheets = OrderSheetSync::deletingAll($count, auth()->user());
+
         DB::transaction(function () use ($count): void {
             Order::query()->delete();
 
@@ -50,6 +65,8 @@ class OrderDeletion
                 ->event('orders_deleted_all')
                 ->log("Видалено всі замовлення: {$count}");
         });
+
+        $refreshSheets();
 
         return $count;
     }

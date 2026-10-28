@@ -3,7 +3,9 @@
 namespace App\Filament\Pages;
 
 use App\Models\Setting;
+use App\Services\GoogleSheets\GoogleSheetsClient;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
@@ -11,9 +13,11 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Facades\Artisan;
 
 class SchoolSettings extends Page implements HasForms
 {
@@ -42,6 +46,7 @@ class SchoolSettings extends Page implements HasForms
         'support_email' => '',
         'support_telegram_chat_id' => '',
         'service_info_text' => '',
+        'google_sheet_url' => '',
     ];
 
     /** @var array<string, mixed>|null */
@@ -114,6 +119,30 @@ class SchoolSettings extends Page implements HasForms
                             ->helperText('Дізнатися свій ID можна в бота @userinfobot.'),
                     ]),
 
+                Section::make('Google Таблиця замовлень')
+                    ->description('Кожне замовлення, скасування й видалення потрапляє в таблицю: окрема вкладка на кожного постачальника й тиждень харчування, плюс «Журнал змін». Вкладки поточного тижня — першими зліва.')
+                    ->schema([
+                        TextInput::make('google_sheet_url')
+                            ->label('Посилання на Google Таблицю')
+                            ->placeholder('https://docs.google.com/spreadsheets/d/…/edit')
+                            ->maxLength(500)
+                            ->helperText(fn (): string => static::googleAccessHint()),
+
+                        Actions::make([
+                            Action::make('testGoogleSheet')
+                                ->label('Перевірити з\'єднання')
+                                ->icon('heroicon-o-signal')
+                                ->color('gray')
+                                ->action(fn () => $this->testGoogleSheet()),
+
+                            Action::make('syncGoogleSheet')
+                                ->label('Оновити поточний і наступний тиждень')
+                                ->icon('heroicon-o-arrow-path')
+                                ->color('gray')
+                                ->action(fn () => $this->syncGoogleSheet()),
+                        ])->key('googleSheetActions'),
+                    ]),
+
                 Section::make('Інформація про сервіс')
                     ->description('Текст на сторінці «Інформація про сервіс». Порожнє поле — показується стандартний опис.')
                     ->schema([
@@ -135,5 +164,67 @@ class SchoolSettings extends Page implements HasForms
         }
 
         Notification::make()->title('Налаштування збережено')->success()->send();
+    }
+
+    private static function googleAccessHint(): string
+    {
+        $email = GoogleSheetsClient::serviceAccountEmail();
+
+        return $email === null
+            ? 'Ключ сервісного акаунта Google на сервері не знайдено (GOOGLE_SERVICE_ACCOUNT_JSON у .env) — без нього таблиця не оновлюватиметься.'
+            : "Відкрийте таблицю → «Поділитися» → додайте {$email} як «Редактор».";
+    }
+
+    /** Кнопки працюють із посиланням, яке зараз у полі, — зберігаємо його спершу. */
+    private function rememberGoogleSheetUrl(): void
+    {
+        Setting::put('google_sheet_url', trim((string) ($this->data['google_sheet_url'] ?? '')));
+    }
+
+    private function testGoogleSheet(): void
+    {
+        $this->rememberGoogleSheetUrl();
+
+        if (! GoogleSheetsClient::isConfigured()) {
+            Notification::make()
+                ->title('Не налаштовано')
+                ->body(GoogleSheetsClient::credentials() === null
+                    ? 'На сервері немає ключа сервісного акаунта Google.'
+                    : 'Вставте посилання на Google Таблицю.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        try {
+            $title = app(GoogleSheetsClient::class)->title();
+
+            Notification::make()->title('З\'єднання є')->body("Таблиця «{$title}» доступна для запису.")->success()->send();
+        } catch (\Throwable $e) {
+            report($e);
+
+            Notification::make()
+                ->title('Немає доступу до таблиці')
+                ->body('Перевірте посилання й те, що таблицю розшарено на e-mail сервісного акаунта як «Редактор». '.$e->getMessage())
+                ->danger()
+                ->persistent()
+                ->send();
+        }
+    }
+
+    private function syncGoogleSheet(): void
+    {
+        $this->rememberGoogleSheetUrl();
+
+        try {
+            Artisan::call('school:sync-google-sheet', ['--next' => true]);
+
+            Notification::make()->title('Таблицю оновлено')->body(trim(Artisan::output()))->success()->send();
+        } catch (\Throwable $e) {
+            report($e);
+
+            Notification::make()->title('Не вдалося оновити таблицю')->body($e->getMessage())->danger()->persistent()->send();
+        }
     }
 }

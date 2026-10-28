@@ -151,6 +151,21 @@ class SchoolSummaryTest extends TestCase
         $this->assertSame('5', Setting::get('deadline_reminder_hours'));
     }
 
+    public function test_google_sheet_link_is_saved_and_checked_without_a_key(): void
+    {
+        config(['services.google_sheets.credentials' => null]);
+
+        Livewire::test(SchoolSettings::class)
+            ->assertSee('Google Таблиця замовлень')
+            ->set('data.google_sheet_url', 'https://docs.google.com/spreadsheets/d/1I1zUgUB08bPYs81hBqgOgJ_PpIMw8y_blsppmpEO_t0/edit')
+            ->call('save')
+            // Без ключа на сервері перевірка чесно каже, чого бракує, а не падає.
+            ->callAction(\Filament\Actions\Testing\TestAction::make('testGoogleSheet')->schemaComponent('googleSheetActions', schema: 'form'))
+            ->assertNotified('Не налаштовано');
+
+        $this->assertStringContainsString('1I1zUgUB08bPYs81hBqgOgJ_PpIMw8y_blsppmpEO_t0', Setting::get('google_sheet_url'));
+    }
+
     private function student(string $name): Student
     {
         $user = User::create([

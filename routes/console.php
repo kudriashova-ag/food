@@ -33,5 +33,10 @@ Schedule::command('school:send-cancellation-alerts')
     ->everyFifteenMinutes()
     ->withoutOverlapping();
 
+// Google Таблиця замовлень: з початком тижня його вкладки стають першими.
+Schedule::command('school:sync-google-sheet')
+    ->weeklyOn(1, '00:10')
+    ->withoutOverlapping();
+
 // Прострочені токени прив'язки Telegram живуть 15 хвилин — прибираємо їх раз на добу.
 Schedule::command('model:prune')->daily();
