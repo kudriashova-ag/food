@@ -131,6 +131,9 @@ class GoogleSheetsSyncTest extends TestCase
             && data_get($request->data(), 'values.0.1') === "Прізвище, ім'я"
             && data_get($request->data(), 'values.2.1') === 'Іваненко Марія');
 
+        // Очищення вкладки: тіло — об'єкт «{}», на «[]» Google відповідає 400.
+        Http::assertSent(fn (Request $request): bool => str_contains($request->url(), ':clear') && $request->body() === '{}');
+
         // Товста рамка ліворуч від першої колонки дня.
         Http::assertSent(fn (Request $request): bool => str_contains($request->url(), ':batchUpdate')
             && str_contains(json_encode($request->data()), 'SOLID_THICK'));

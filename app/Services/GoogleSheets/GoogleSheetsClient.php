@@ -121,7 +121,10 @@ class GoogleSheetsClient
 
     public function clearValues(string $sheetTitle): void
     {
+        // Тіло обов'язково має бути об'єктом «{}»: порожній масив Laravel кодує як «[]»,
+        // і Google відповідає 400 «Root element must be a message».
         $this->request()
+            ->withBody('{}', 'application/json')
             ->post($this->url('/values/'.$this->range($sheetTitle).':clear'))
             ->throw();
     }
