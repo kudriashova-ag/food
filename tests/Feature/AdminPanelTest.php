@@ -164,6 +164,46 @@ class AdminPanelTest extends TestCase
         $this->assertNull($student->user->fresh()->plain_password);
     }
 
+    public function test_admin_deletes_one_order_with_its_lines(): void
+    {
+        $line = $this->orderLine();
+        $other = $this->orderLine('Домашня кухня', 'domashnya');
+
+        Livewire::test(ListOrders::class)
+            ->callTableAction('delete', $line->order)
+            ->assertHasNoTableActionErrors();
+
+        $this->assertModelMissing($line->order);
+        $this->assertModelMissing($line);
+        $this->assertModelExists($other->order);
+        $this->assertDatabaseHas('activity_log', ['event' => 'order_deleted']);
+    }
+
+    public function test_delete_all_orders_requires_the_confirmation_word(): void
+    {
+        $this->orderLine();
+
+        Livewire::test(ListOrders::class)
+            ->callAction('deleteAll', data: ['confirmation' => 'так'])
+            ->assertHasActionErrors(['confirmation']);
+
+        $this->assertSame(1, Order::query()->count());
+    }
+
+    public function test_admin_deletes_all_orders(): void
+    {
+        $this->orderLine();
+        $this->orderLine('Домашня кухня', 'domashnya');
+
+        Livewire::test(ListOrders::class)
+            ->callAction('deleteAll', data: ['confirmation' => 'ВИДАЛИТИ'])
+            ->assertHasNoActionErrors();
+
+        $this->assertSame(0, Order::query()->count());
+        $this->assertSame(0, OrderLine::query()->count());
+        $this->assertDatabaseHas('activity_log', ['event' => 'orders_deleted_all']);
+    }
+
     public function test_teacher_is_created_without_a_class(): void
     {
         Livewire::test(CreateStudent::class)

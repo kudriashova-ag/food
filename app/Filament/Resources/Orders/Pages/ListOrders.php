@@ -4,11 +4,15 @@ namespace App\Filament\Resources\Orders\Pages;
 
 use App\Exports\OrdersBySupplierExport;
 use App\Filament\Resources\Orders\OrderResource;
+use App\Models\Order;
+use App\Services\Orders\OrderDeletion;
 use App\Services\Reports\OrderExportService;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -33,7 +37,43 @@ class ListOrders extends ListRecords
                 reports: fn (CarbonImmutable $from, CarbonImmutable $to) => app(OrderExportService::class)->teacherReportsBySupplier($from, $to),
                 filenamePrefix: 'zamovlennia-vchyteli',
             ),
+            static::deleteAllAction(),
         ];
+    }
+
+    /**
+     * Повне очищення замовлень. Дія незворотна й зачіпає всіх учнів і постачальників,
+     * тож, окрім підтвердження, просимо ввести слово — випадковим кліком не спрацює.
+     */
+    private static function deleteAllAction(): Action
+    {
+        return Action::make('deleteAll')
+            ->label('Видалити всі замовлення')
+            ->icon('heroicon-o-trash')
+            ->color('danger')
+            ->visible(fn (): bool => Order::query()->exists())
+            ->modalHeading('Видалити всі замовлення?')
+            ->modalDescription(fn (): string => sprintf(
+                'Буде видалено всі замовлення (%d) разом з усіма стравами — в усіх учнів і постачальників, за всі дати. Відновити їх не вийде.',
+                Order::query()->count(),
+            ))
+            ->modalIcon('heroicon-o-exclamation-triangle')
+            ->modalSubmitActionLabel('Видалити всі')
+            ->schema([
+                TextInput::make('confirmation')
+                    ->label('Щоб підтвердити, введіть слово ВИДАЛИТИ')
+                    ->required()
+                    ->in(['ВИДАЛИТИ'])
+                    ->validationMessages(['in' => 'Введіть слово ВИДАЛИТИ великими літерами.']),
+            ])
+            ->action(function (): void {
+                $count = OrderDeletion::deleteAll();
+
+                Notification::make()
+                    ->title("Видалено замовлень: {$count}")
+                    ->success()
+                    ->send();
+            });
     }
 
     /** @param callable(CarbonImmutable, CarbonImmutable): \Illuminate\Support\Collection $reports */

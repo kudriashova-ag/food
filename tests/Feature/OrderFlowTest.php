@@ -323,6 +323,21 @@ class OrderFlowTest extends TestCase
         );
     }
 
+    public function test_number_is_not_reused_after_an_earlier_order_is_deleted(): void
+    {
+        // Два замовлення за день, адміністратор видаляє перше — третє не має
+        // отримати номер ...0002, який уже зайнятий другим.
+        Order::create(['number' => 'ЗМ-20260810-0001', 'student_id' => $this->student->id, 'placed_at' => now()]);
+        $second = Order::create(['number' => 'ЗМ-20260810-0002', 'student_id' => $this->student->id, 'placed_at' => now()]);
+        Order::query()->where('number', 'ЗМ-20260810-0001')->delete();
+
+        $this->cart->add($this->cartModel, $this->complex, null);
+        $third = $this->orders->placeFromCart($this->student);
+
+        $this->assertSame('ЗМ-20260810-0003', $third->number);
+        $this->assertModelExists($second);
+    }
+
     public function test_cancelling_the_whole_day_allows_ordering_it_again(): void
     {
         $this->cart->add($this->cartModel, $this->complex, null);

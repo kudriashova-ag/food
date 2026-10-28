@@ -6,6 +6,8 @@ use App\Filament\Resources\Orders\OrderResource;
 use App\Models\Order;
 use App\Models\SchoolClass;
 use App\Models\Supplier;
+use App\Services\Orders\OrderDeletion;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\TextColumn;
@@ -97,9 +99,25 @@ class OrdersTable
             ])
             ->recordActions([
                 ViewAction::make()->label('Відкрити'),
+                static::deleteAction(),
             ])
             ->recordUrl(fn (Order $record): string => OrderResource::getUrl('view', ['record' => $record]))
             ->emptyStateHeading('Замовлень немає');
+    }
+
+    /**
+     * Видалення замовлення повністю — разом з усіма позиціями (на відміну від
+     * скасування, після якого позиції лишаються в історії перекресленими).
+     */
+    private static function deleteAction(): DeleteAction
+    {
+        return DeleteAction::make()
+            ->label('Видалити')
+            ->modalHeading(fn (Order $record): string => "Видалити замовлення {$record->number}?")
+            ->modalDescription('Замовлення зникне повністю, разом з усіма стравами — і в учня, і в постачальника, і у звітах. Відновити його не вийде. Якщо потрібно лише відмінити харчування, скористайтеся скасуванням.')
+            ->modalSubmitActionLabel('Видалити')
+            ->before(fn (Order $record) => OrderDeletion::log($record))
+            ->successNotificationTitle('Замовлення видалено');
     }
 
     /** Замовлення може охоплювати кілька днів — показуємо діапазон. */

@@ -170,10 +170,15 @@ class OrderService
         $prefix = config('school.order_number_prefix');
         $today = now()->format('Ymd');
 
-        $countToday = Order::query()
+        // Від найбільшого номера за день, а не від кількості: адміністратор може
+        // видаляти замовлення, і лічильник за кількістю видав би вже зайнятий номер.
+        $lastToday = Order::query()
             ->where('number', 'like', "{$prefix}-{$today}-%")
-            ->count();
+            ->orderByDesc('number')
+            ->value('number');
 
-        return sprintf('%s-%s-%04d', $prefix, $today, $countToday + 1);
+        $sequence = $lastToday === null ? 0 : (int) substr($lastToday, strrpos($lastToday, '-') + 1);
+
+        return sprintf('%s-%s-%04d', $prefix, $today, $sequence + 1);
     }
 }
