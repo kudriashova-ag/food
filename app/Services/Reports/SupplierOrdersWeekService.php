@@ -120,7 +120,7 @@ class SupplierOrdersWeekService
             ->values()
             ->sortBy([
                 fn (array $a, array $b): int => $a['date'] <=> $b['date'],
-                fn (array $a, array $b): int => $this->sectionOrder($a['section_type']) <=> $this->sectionOrder($b['section_type']),
+                fn (array $a, array $b): int => $this->sectionOrder($a['section_type'], $a['section_title']) <=> $this->sectionOrder($b['section_type'], $b['section_title']),
                 fn (array $a, array $b): int => $a['sort'] <=> $b['sort'],
                 fn (array $a, array $b): int => strcmp($a['section_title'], $b['section_title']),
             ])
@@ -236,13 +236,21 @@ class SupplierOrdersWeekService
         return $line->section_title ?? $line->dish_name ?? '';
     }
 
-    /** Порядок секцій у звіті: перше (вибір) → комплекс → додаткові. */
-    private function sectionOrder(?MenuSectionType $type): int
+    /**
+     * Порядок секцій у звіті: перше → комплекс → інші → напої.
+     * Перше й напої впізнаємо за назвою: у меню різних тижнів ту саму секцію
+     * можуть завести різним типом («Напій» — і групою вибору, і додатковими).
+     */
+    private function sectionOrder(?MenuSectionType $type, string $title): int
     {
-        return match ($type) {
-            MenuSectionType::Choice => 0,
-            MenuSectionType::Complex => 1,
-            MenuSectionType::Extra => 2,
+        $title = mb_strtolower(trim($title));
+
+        return match (true) {
+            str_starts_with($title, 'перш') => 0,
+            $type === MenuSectionType::Complex => 1,
+            str_starts_with($title, 'напі') || str_starts_with($title, 'напо') => 4,
+            $type === MenuSectionType::Choice => 2,
+            $type === MenuSectionType::Extra => 3,
             default => 3,
         };
     }

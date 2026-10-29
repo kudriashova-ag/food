@@ -69,6 +69,20 @@ class SupplierOrdersWeekServiceTest extends TestCase
         $this->assertSame(['Перше', 'Комплекс №1', 'Напій'], $report['columns']->pluck('section_title')->all());
     }
 
+    public function test_first_course_and_drinks_are_placed_by_title_whatever_their_type(): void
+    {
+        $student = $this->pupil('Іваненко Марія', 5, 'А');
+
+        // Напій заведено групою вибору, перше — додатковими; порядок однаковий.
+        $this->line($student, self::FROM, MenuSectionType::Choice, 'Напій', 'Компот', 20);
+        $this->line($student, self::FROM, MenuSectionType::Complex, 'Комплекс', 'Комплекс: Салат, Котлета', 230);
+        $this->line($student, self::FROM, MenuSectionType::Extra, 'Перші страви', 'Борщ', 45);
+
+        $report = $this->service->build($this->supplier, self::FROM, self::TO);
+
+        $this->assertSame(['Перші страви', 'Комплекс', 'Напій'], $report['columns']->pluck('section_title')->all());
+    }
+
     public function test_menu_sections_get_columns_even_without_orders(): void
     {
         $student = $this->pupil('Іваненко Марія', 5, 'А');
