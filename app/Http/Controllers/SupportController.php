@@ -23,6 +23,17 @@ class SupportController extends Controller
         ]);
     }
 
+    /** Публічна політика конфіденційності — її адресу вимагає й Google для підключення Диска. */
+    public function privacy(): View
+    {
+        return view('support.privacy', [
+            'schoolName' => Setting::get('school_name') ?: 'Шкільна їдальня',
+            'schoolText' => Setting::get('privacy_policy_text'),
+            'contacts' => Setting::get('school_contacts'),
+            'email' => Setting::get('support_email'),
+        ]);
+    }
+
     public function show(Request $request): View
     {
         $student = $request->user()?->student;

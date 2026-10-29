@@ -45,6 +45,19 @@ class SupportTest extends TestCase
             ->assertSee('Скасування');
     }
 
+    public function test_privacy_policy_is_public_and_linked_from_every_page(): void
+    {
+        // Адресу політики вимагає Google для публікації OAuth-застосунку.
+        $this->get(route('support.privacy'))
+            ->assertOk()
+            ->assertSee('Політика конфіденційності')
+            ->assertSee('drive.file');
+
+        $this->get(route('home'))
+            ->assertOk()
+            ->assertSee(route('support.privacy'));
+    }
+
     public function test_school_can_add_its_own_text_to_the_info_page(): void
     {
         Setting::put('service_info_text', 'Їдальня працює з 8:00.');

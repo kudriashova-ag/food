@@ -235,9 +235,12 @@
 
             <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <span>{{ \App\Models\Setting::get('school_name') ?: 'Шкільна їдальня' }}</span>
-                @if ($contacts)
-                    <span>{{ $contacts }}</span>
-                @endif
+                <span class="flex flex-wrap gap-x-4 gap-y-1">
+                    @if ($contacts)
+                        <span>{{ $contacts }}</span>
+                    @endif
+                    <a href="{{ route('support.privacy') }}" class="underline-offset-2 hover:text-ink-700 hover:underline">Політика конфіденційності</a>
+                </span>
             </div>
         </div>
     </footer>

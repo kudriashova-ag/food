@@ -42,6 +42,7 @@ Route::middleware('consent')->group(function (): void {
 
     // Довідка відкрита всім: питання виникають і до входу.
     Route::get('/about', [SupportController::class, 'info'])->name('support.info');
+    Route::get('/privacy', [SupportController::class, 'privacy'])->name('support.privacy');
     Route::get('/help', [SupportController::class, 'show'])->name('support.help');
     Route::post('/help', [SupportController::class, 'store'])->name('support.store');
 
