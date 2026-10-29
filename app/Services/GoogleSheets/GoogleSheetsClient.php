@@ -98,10 +98,11 @@ class GoogleSheetsClient
     }
 
     /**
-     * Значення й колір фону кожної клітинки вкладки — щоб зберегти кольори,
-     * які людина задала вручну, під час повного перезапису.
+     * Значення й колір фону кожної клітинки вкладки — щоб зберегти кольори
+     * й дані, які людина задала вручну, під час повного перезапису.
+     * entered — введене значення як є (число лишається числом).
      *
-     * @return array<int, array<int, array{value: string, color: array<string, float>|null}>>
+     * @return array<int, array<int, array{value: string, entered: string|int|float|bool|null, color: array<string, float>|null}>>
      */
     public function gridColors(string $spreadsheetId, string $sheetTitle): array
     {
@@ -109,7 +110,7 @@ class GoogleSheetsClient
             ->get($this->sheetsUrl($spreadsheetId), [
                 'ranges' => "'".str_replace("'", "''", $sheetTitle)."'",
                 'includeGridData' => 'true',
-                'fields' => 'sheets.data.rowData.values(formattedValue,userEnteredFormat.backgroundColor)',
+                'fields' => 'sheets.data.rowData.values(formattedValue,userEnteredValue,userEnteredFormat.backgroundColor)',
             ])
             ->throw()
             ->json();
@@ -118,6 +119,7 @@ class GoogleSheetsClient
             ->map(fn (array $row): array => collect($row['values'] ?? [])
                 ->map(fn (array $cell): array => [
                     'value' => (string) ($cell['formattedValue'] ?? ''),
+                    'entered' => collect($cell['userEnteredValue'] ?? [])->first(),
                     'color' => $cell['userEnteredFormat']['backgroundColor'] ?? null,
                 ])
                 ->all())

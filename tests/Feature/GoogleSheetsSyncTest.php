@@ -45,6 +45,9 @@ class GoogleSheetsSyncTest extends TestCase
     /** Що повертає «Замовлення» з includeGridData: рядки клітинок {formattedValue, userEnteredFormat}. */
     private array $grid = [];
 
+    /** Те саме для вкладки «Оплата». */
+    private array $paymentGrid = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -249,6 +252,94 @@ class GoogleSheetsSyncTest extends TestCase
         $this->assertFalse($colored->contains(fn (array $c): bool => $c[2] === $cancelledRed));
     }
 
+    public function test_payment_tab_sums_active_dishes_by_day(): void
+    {
+        $this->connect();
+        $this->fakeGoogle();
+
+        $order = $this->order();   // Борщ 45 на 08.09
+        $order->lines()->create([
+            'student_id' => $this->student->id, 'supplier_id' => $this->supplier->id, 'service_date' => '2026-09-09',
+            'dish_name' => 'Комплекс №1: Салат, Котлета', 'section_type' => MenuSectionType::Complex, 'section_title' => 'Комплекс',
+            'quantity' => 1, 'unit_price' => 70,
+        ]);
+        // Скасоване до сплати не йде.
+        $order->lines()->create([
+            'student_id' => $this->student->id, 'supplier_id' => $this->supplier->id, 'service_date' => '2026-09-09',
+            'dish_name' => 'Компот', 'section_type' => MenuSectionType::Extra, 'section_title' => 'Напій',
+            'quantity' => 1, 'unit_price' => 30, 'status' => OrderLineStatus::Cancelled,
+        ]);
+
+        app(OrdersWorkbook::class)->writeWeek($this->supplier, CarbonImmutable::parse(self::SERVICE_DATE));
+
+        Http::assertSent(fn (Request $request): bool => data_get($request->data(), 'requests.0.addSheet.properties.title') === 'Оплата'
+            && data_get($request->data(), 'requests.0.addSheet.properties.index') === 1);
+
+        $values = $this->paymentValues();
+
+        $this->assertSame(['', '_num', '_name', '_class', 'day:2026-09-08', 'day:2026-09-09', '_total', '_debt'], $values[0]);
+        $this->assertSame(['', '№', "Прізвище, ім'я", 'Клас', '08.09.2026', '09.09.2026', 'Всього до сплати', 'Борг'], $values[1]);
+        $this->assertSame(['s'.$this->student->id, 1, 'Іваненко Марія', '5-А', 45, 70, 115, ''], $values[2]);
+    }
+
+    public function test_payment_debt_and_colors_stay_with_the_pupil(): void
+    {
+        $this->connect();
+        $this->fakeGoogle();
+
+        $this->order();   // Іваненко Марія, 5-А
+        $green = ['red' => 0, 'green' => 1, 'blue' => 0];
+
+        // Петренко цього тижня вже нічого не замовляє, але борг за ним записано.
+        $debtorUser = User::create(['name' => 'Петренко Олег', 'login' => 'petrenko', 'password' => 'secret', 'role' => UserRole::Student]);
+        $debtor = Student::create([
+            'user_id' => $debtorUser->id,
+            'full_name' => 'Петренко Олег',
+            'school_class_id' => SchoolClass::create(['grade' => 6, 'letter' => 'Б', 'academic_year' => 2026])->id,
+        ]);
+
+        $this->paymentGrid = [
+            ['values' => $this->cells(['', '_num', '_name', '_class', 'day:'.self::SERVICE_DATE, '_total', '_debt'])],
+            ['values' => []],
+            ['values' => [
+                ['formattedValue' => 's'.$this->student->id], [], [], [], [],
+                ['formattedValue' => '45', 'userEnteredValue' => ['numberValue' => 45], 'userEnteredFormat' => ['backgroundColor' => $green]],
+                ['formattedValue' => 'квитанція від 23.10', 'userEnteredValue' => ['stringValue' => 'квитанція від 23.10']],
+            ]],
+            ['values' => [
+                ['formattedValue' => 's'.$debtor->id], [], [], [], [], [],
+                ['formattedValue' => '120', 'userEnteredValue' => ['numberValue' => 120]],
+            ]],
+        ];
+
+        // Абрамова стає першою — Марія зсувається на рядок нижче.
+        $this->pupilOrder('Абрамова Ірина', 5, 'А');
+
+        app(OrdersWorkbook::class)->writeWeek($this->supplier, CarbonImmutable::parse(self::SERVICE_DATE));
+
+        $values = $this->paymentValues();
+
+        $this->assertSame(['Абрамова Ірина', 'Іваненко Марія', 'Петренко Олег'], array_column(array_slice($values, 2), 2));
+        $this->assertSame('', $values[2][6]);
+        $this->assertSame('квитанція від 23.10', $values[3][6]);
+        $this->assertSame(['s'.$debtor->id, 3, 'Петренко Олег', '6-Б', 0, 0, 120], $values[4]);
+
+        // Зелений «Всього до сплати» — у новому рядку Марії (індекс 3), колонка _total (1 + 4).
+        $colored = collect(Http::recorded())
+            ->flatMap(fn (array $pair): array => data_get($pair[0]->data(), 'requests', []))
+            ->filter(fn (array $r): bool => data_get($r, 'repeatCell.fields') === 'userEnteredFormat.backgroundColor'
+                && data_get($r, 'repeatCell.range.sheetId') === 42)
+            ->map(fn (array $r): array => [
+                data_get($r, 'repeatCell.range.startRowIndex'),
+                data_get($r, 'repeatCell.range.startColumnIndex'),
+                data_get($r, 'repeatCell.cell.userEnteredFormat.backgroundColor'),
+            ])
+            ->values()
+            ->all();
+
+        $this->assertSame([[3, 5, $green]], $colored);
+    }
+
     public function test_existing_files_are_reused_and_deleted_ones_recreated(): void
     {
         $this->connect();
@@ -278,8 +369,9 @@ class GoogleSheetsSyncTest extends TestCase
 
         app(OrdersWorkbook::class)->appendJournal($this->supplier, CarbonImmutable::parse(self::SERVICE_DATE), [['08.09.2026 10:00:00', 'Замовлено']]);
 
+        // Без index — у кінець, після «Замовлення» й «Оплати».
         Http::assertSent(fn (Request $request): bool => data_get($request->data(), 'requests.0.addSheet.properties.title') === 'Журнал змін'
-            && data_get($request->data(), 'requests.0.addSheet.properties.index') === 1);
+            && data_get($request->data(), 'requests.0.addSheet.properties.index') === null);
         Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT' && data_get($request->data(), 'values.0') === OrdersWorkbook::JOURNAL_HEADER);
         Http::assertSent(fn (Request $request): bool => str_contains($request->url(), ':append') && data_get($request->data(), 'values.0.1') === 'Замовлено');
     }
@@ -387,12 +479,26 @@ class GoogleSheetsSyncTest extends TestCase
             }
 
             if (str_contains($url, 'includeGridData')) {
-                return Http::response(['sheets' => [['data' => [['rowData' => $this->grid]]]]]);
+                $grid = str_contains(urldecode($url), OrdersWorkbook::PAYMENT_TITLE) ? $this->paymentGrid : $this->grid;
+
+                return Http::response(['sheets' => [['data' => [['rowData' => $grid]]]]]);
             }
 
             // Нова таблиця: лише «Аркуш1».
             return Http::response(['sheets' => [['properties' => ['sheetId' => 0, 'title' => 'Аркуш1', 'index' => 0]]]]);
         });
+    }
+
+    /** Значення, записані у вкладку «Оплата» (останній запис). */
+    private function paymentValues(): array
+    {
+        $put = collect(Http::recorded())
+            ->map(fn (array $pair): Request => $pair[0])
+            ->last(fn (Request $request): bool => $request->method() === 'PUT' && str_contains(urldecode($request->url()), "'Оплата'"));
+
+        $this->assertNotNull($put, 'Вкладку «Оплата» не записано');
+
+        return data_get($put->data(), 'values');
     }
 
     /** @return array<int, array{formattedValue: string}> */

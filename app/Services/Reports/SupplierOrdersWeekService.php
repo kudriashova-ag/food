@@ -28,7 +28,7 @@ class SupplierOrdersWeekService
     /**
      * @return array{
      *     columns: Collection<int, array{key: string, date: CarbonImmutable, section_title: string, section_type: MenuSectionType|null, price: float|null, is_complex: bool, complex_dishes: string|null}>,
-     *     rows: Collection<int, array{full_name: string, class: string, cells: array<string, string>, cancelled: array<string, true>}>
+     *     rows: Collection<int, array{full_name: string, class: string, cells: array<string, string>, cancelled: array<string, true>, amounts: array<string, float>}>
      * }
      */
     public function build(Supplier $supplier, CarbonInterface|string $from, CarbonInterface|string $to, bool $withCancelled = false): array
@@ -160,6 +160,8 @@ class SupplierOrdersWeekService
 
                 $cells = [];
                 $cancelled = [];
+                // До сплати за кожен день — лише активні позиції.
+                $amounts = [];
 
                 // Скасовані спершу, активні після: якщо в ту саму секцію замовили
                 // знову, клітинка показує актуальну страву без позначки скасування.
@@ -174,21 +176,37 @@ class SupplierOrdersWeekService
                         $cancelled[$key] = true;
                     } else {
                         unset($cancelled[$key]);
+
+                        $date = $line->service_date->toDateString();
+                        $amounts[$date] = round(($amounts[$date] ?? 0) + (float) $line->quantity * (float) $line->unit_price, 2);
                     }
                 }
 
                 return [
-                    'student_id' => (int) $student->id,
-                    'full_name' => $student->full_name,
-                    // Вчитель класу не має — за домовленістю пишемо «Вчитель».
-                    'class' => $student->school_class_id === null ? 'Вчитель' : ($student->schoolClass?->title ?? ''),
-                    'class_order' => $this->classOrder($student),
+                    ...$this->studentColumns($student),
                     'cells' => $cells,
                     'cancelled' => $cancelled,
+                    'amounts' => $amounts,
                 ];
             })
             ->sortBy('full_name')
             ->values();
+    }
+
+    /**
+     * Хто це: ПІБ, клас і місце в порядку Google Таблиці.
+     *
+     * @return array{student_id: int, full_name: string, class: string, class_order: array<int, int|string>}
+     */
+    public function studentColumns(\App\Models\Student $student): array
+    {
+        return [
+            'student_id' => (int) $student->id,
+            'full_name' => $student->full_name,
+            // Вчитель класу не має — за домовленістю пишемо «Вчитель».
+            'class' => $student->school_class_id === null ? 'Вчитель' : ($student->schoolClass?->title ?? ''),
+            'class_order' => $this->classOrder($student),
+        ];
     }
 
     /**
