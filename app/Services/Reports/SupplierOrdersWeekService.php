@@ -178,15 +178,38 @@ class SupplierOrdersWeekService
                 }
 
                 return [
+                    'student_id' => (int) $student->id,
                     'full_name' => $student->full_name,
                     // Вчитель класу не має — за домовленістю пишемо «Вчитель».
                     'class' => $student->school_class_id === null ? 'Вчитель' : ($student->schoolClass?->title ?? ''),
+                    'class_order' => $this->classOrder($student),
                     'cells' => $cells,
                     'cancelled' => $cancelled,
                 ];
             })
             ->sortBy('full_name')
             ->values();
+    }
+
+    /**
+     * Порядок груп у Google Таблиці: шкільні класи → курси коледжу («1-Курс»,
+     * «2-Курс» — класи з літерою «Курс») → вчителі.
+     *
+     * @return array<int, int|string>
+     */
+    private function classOrder(\App\Models\Student $student): array
+    {
+        $class = $student->schoolClass;
+
+        if ($student->school_class_id === null || $class === null) {
+            return [2, 0, ''];
+        }
+
+        if (mb_strtolower(trim((string) $class->letter)) === 'курс') {
+            return [1, (int) $class->grade, ''];
+        }
+
+        return [0, (int) $class->grade, mb_strtoupper((string) $class->letter)];
     }
 
     /** Секції з однаковою назвою в один день — одна колонка. */

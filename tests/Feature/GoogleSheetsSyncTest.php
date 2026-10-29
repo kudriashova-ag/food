@@ -42,6 +42,9 @@ class GoogleSheetsSyncTest extends TestCase
     /** Підроблений Google Диск: id → [name, mimeType, parents, trashed]. */
     private array $drive = [];
 
+    /** Що повертає «Замовлення» з includeGridData: рядки клітинок {formattedValue, userEnteredFormat}. */
+    private array $grid = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -140,7 +143,9 @@ class GoogleSheetsSyncTest extends TestCase
 
         Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT'
             && str_contains(urldecode($request->url()), "'Замовлення'")
-            && data_get($request->data(), 'values.2.1') === 'Іваненко Марія');
+            && data_get($request->data(), 'values.3.2') === 'Іваненко Марія'
+            && data_get($request->data(), 'values.3.0') === 's'.$this->student->id
+            && data_get($request->data(), 'values.0.4') === self::SERVICE_DATE.'|Перше');
 
         Http::assertSent(fn (Request $request): bool => str_contains($request->url(), ':clear') && $request->body() === '{}');
         Http::assertSent(fn (Request $request): bool => str_contains(json_encode($request->data()), 'SOLID_THICK'));
@@ -154,16 +159,94 @@ class GoogleSheetsSyncTest extends TestCase
 
         app(OrdersWorkbook::class)->writeWeek($this->supplier, CarbonImmutable::parse(self::SERVICE_DATE));
 
-        Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT' && data_get($request->data(), 'values.2.3') === 'Борщ');
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT' && data_get($request->data(), 'values.3.4') === 'Борщ');
 
         Http::assertSent(function (Request $request): bool {
             return collect(data_get($request->data(), 'requests', []))->contains(
                 fn (array $r): bool => data_get($r, 'repeatCell.fields') === 'userEnteredFormat.backgroundColor'
-                    && data_get($r, 'repeatCell.range.startRowIndex') === 2
-                    && data_get($r, 'repeatCell.range.startColumnIndex') === 3
+                    && data_get($r, 'repeatCell.range.startRowIndex') === 3
+                    && data_get($r, 'repeatCell.range.startColumnIndex') === 4
                     && round(data_get($r, 'repeatCell.cell.userEnteredFormat.backgroundColor.red'), 2) === 0.92,
             );
         });
+    }
+
+    public function test_rows_go_classes_then_college_courses_then_teachers(): void
+    {
+        $this->connect();
+        $this->fakeGoogle();
+
+        $this->pupilOrder('Яременко Олег', 7, 'Б');
+        $this->pupilOrder('Бойко Анна', 2, 'Курс');
+        $this->pupilOrder('Андрієнко Ігор', 1, 'Курс');
+        $this->pupilOrder('Коваленко Ольга', null, null);
+        $this->pupilOrder('Абрамова Ірина', 5, 'А');
+        $this->order();   // Іваненко Марія, 5-А
+
+        app(OrdersWorkbook::class)->writeWeek($this->supplier, CarbonImmutable::parse(self::SERVICE_DATE));
+
+        Http::assertSent(function (Request $request): bool {
+            if ($request->method() !== 'PUT') {
+                return false;
+            }
+
+            $names = collect(array_slice(data_get($request->data(), 'values'), 3))->pluck(2)->all();
+
+            return $names === ['Абрамова Ірина', 'Іваненко Марія', 'Яременко Олег', 'Андрієнко Ігор', 'Бойко Анна', 'Коваленко Ольга'];
+        });
+
+        // Службові ключі приховано.
+        Http::assertSent(fn (Request $request): bool => collect(data_get($request->data(), 'requests', []))->contains(
+            fn (array $r): bool => data_get($r, 'updateDimensionProperties.range.dimension') === 'COLUMNS'
+                && data_get($r, 'updateDimensionProperties.properties.hiddenByUser') === true,
+        ));
+    }
+
+    public function test_manual_colors_follow_the_pupil_when_rows_shift(): void
+    {
+        $this->connect();
+        $this->fakeGoogle();
+
+        $this->order();   // Іваненко Марія, 5-А
+        $key = 's'.$this->student->id;
+        $yellow = ['red' => 1, 'green' => 0.9490196, 'blue' => 0.8];
+        $cancelledRed = ['red' => 0.91764706, 'green' => 0.6, 'blue' => 0.6];
+
+        // Таблиця, яку бачила адміністраторка: Марія в першому рядку даних,
+        // клітинка «Перше» пофарбована вручну, а ПІБ — нашим червоним (не враховуємо).
+        $this->grid = [
+            ['values' => $this->cells(['', '_num', '_name', '_class', self::SERVICE_DATE.'|Перше'])],
+            ['values' => []],
+            ['values' => []],
+            ['values' => [
+                ['formattedValue' => $key],
+                ['formattedValue' => '1'],
+                ['formattedValue' => 'Іваненко Марія', 'userEnteredFormat' => ['backgroundColor' => $cancelledRed]],
+                ['formattedValue' => '5-А'],
+                ['formattedValue' => 'Борщ', 'userEnteredFormat' => ['backgroundColor' => $yellow]],
+            ]],
+        ];
+
+        // Новий учень того ж класу стає вище за алфавітом — Марія зсувається на рядок нижче.
+        $this->pupilOrder('Абрамова Ірина', 5, 'А');
+
+        app(OrdersWorkbook::class)->writeWeek($this->supplier, CarbonImmutable::parse(self::SERVICE_DATE));
+
+        $colored = collect(Http::recorded())
+            ->flatMap(fn (array $pair): array => data_get($pair[0]->data(), 'requests', []))
+            ->filter(fn (array $r): bool => data_get($r, 'repeatCell.fields') === 'userEnteredFormat.backgroundColor')
+            ->map(fn (array $r): array => [
+                data_get($r, 'repeatCell.range.startRowIndex'),
+                data_get($r, 'repeatCell.range.startColumnIndex'),
+                data_get($r, 'repeatCell.cell.userEnteredFormat.backgroundColor'),
+            ])
+            ->values();
+
+        // Жовтий — у рядку Марії (тепер 5-й, індекс 4) і колонці «Перше» (індекс 4).
+        $this->assertContains([4, 4, $yellow], $colored->all());
+        // На старе місце (індекс 3 — тепер Абрамова) колір не переходить, наш червоний не відновлюється.
+        $this->assertNotContains([3, 4, $yellow], $colored->all());
+        $this->assertFalse($colored->contains(fn (array $c): bool => $c[2] === $cancelledRed));
     }
 
     public function test_existing_files_are_reused_and_deleted_ones_recreated(): void
@@ -303,9 +386,52 @@ class GoogleSheetsSyncTest extends TestCase
                 return Http::response([]);
             }
 
+            if (str_contains($url, 'includeGridData')) {
+                return Http::response(['sheets' => [['data' => [['rowData' => $this->grid]]]]]);
+            }
+
             // Нова таблиця: лише «Аркуш1».
             return Http::response(['sheets' => [['properties' => ['sheetId' => 0, 'title' => 'Аркуш1', 'index' => 0]]]]);
         });
+    }
+
+    /** @return array<int, array{formattedValue: string}> */
+    private function cells(array $values): array
+    {
+        return array_map(fn (string $value): array => ['formattedValue' => $value], $values);
+    }
+
+    /** Замовлення борщу на SERVICE_DATE від нового учня (без класу — вчитель). */
+    private function pupilOrder(string $name, ?int $grade, ?string $letter): void
+    {
+        $user = User::create(['name' => $name, 'login' => uniqid('u-'), 'password' => 'secret', 'role' => UserRole::Student]);
+
+        $student = Student::create([
+            'user_id' => $user->id,
+            'full_name' => $name,
+            'school_class_id' => $grade === null
+                ? null
+                : SchoolClass::query()->firstOrCreate(['grade' => $grade, 'letter' => $letter, 'academic_year' => 2026])->id,
+        ]);
+
+        $order = Order::create([
+            'number' => uniqid('ЗМ-'),
+            'student_id' => $student->id,
+            'school_class_id' => $student->school_class_id,
+            'placed_at' => now(),
+        ]);
+
+        $order->lines()->create([
+            'student_id' => $student->id,
+            'supplier_id' => $this->supplier->id,
+            'service_date' => self::SERVICE_DATE,
+            'dish_id' => null,
+            'dish_name' => 'Борщ',
+            'section_type' => MenuSectionType::Choice,
+            'section_title' => 'Перше',
+            'quantity' => 1,
+            'unit_price' => 45,
+        ]);
     }
 
     private function order(OrderLineStatus $status = OrderLineStatus::Active): Order

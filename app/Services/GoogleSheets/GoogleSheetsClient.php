@@ -98,6 +98,33 @@ class GoogleSheetsClient
     }
 
     /**
+     * Значення й колір фону кожної клітинки вкладки — щоб зберегти кольори,
+     * які людина задала вручну, під час повного перезапису.
+     *
+     * @return array<int, array<int, array{value: string, color: array<string, float>|null}>>
+     */
+    public function gridColors(string $spreadsheetId, string $sheetTitle): array
+    {
+        $response = $this->request()
+            ->get($this->sheetsUrl($spreadsheetId), [
+                'ranges' => "'".str_replace("'", "''", $sheetTitle)."'",
+                'includeGridData' => 'true',
+                'fields' => 'sheets.data.rowData.values(formattedValue,userEnteredFormat.backgroundColor)',
+            ])
+            ->throw()
+            ->json();
+
+        return collect(data_get($response, 'sheets.0.data.0.rowData', []))
+            ->map(fn (array $row): array => collect($row['values'] ?? [])
+                ->map(fn (array $cell): array => [
+                    'value' => (string) ($cell['formattedValue'] ?? ''),
+                    'color' => $cell['userEnteredFormat']['backgroundColor'] ?? null,
+                ])
+                ->all())
+            ->all();
+    }
+
+    /**
      * @param  array<int, array<string, mixed>>  $requests
      * @return array<string, mixed>
      */

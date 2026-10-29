@@ -14,6 +14,11 @@ use Illuminate\Support\Collection;
  *   «Замовлення»  — той самий звіт, що «Замовлення за тиждень» в Excel,
  *                   скасовані страви лишаються в клітинках на червоному тлі;
  *   «Журнал змін» — рядок на кожне замовлення, скасування, видалення.
+ *
+ * «Замовлення» переписується цілком, але фон клітинок, який людина задала
+ * вручну, зберігається: прихований рядок 1 містить ключі колонок, прихована
+ * колонка A — ключі учнів, тож колір повертається тому самому учневі й колонці,
+ * навіть коли рядки зсунулися. Рядки впорядковані: класи → курси коледжу → вчителі.
  */
 class OrdersWorkbook
 {
@@ -26,9 +31,20 @@ class OrdersWorkbook
         'Секція', 'Страва', 'Кількість', 'Сума, грн', 'Хто змінив', 'Причина',
     ];
 
+    /** № / Прізвище, ім'я / Клас. */
     private const FIXED_COLUMNS = 3;
 
+    /** Ключі для службових колонок у прихованому рядку 1. */
+    private const FIXED_KEYS = ['_num', '_name', '_class'];
+
+    /** Видимі рядки шапки: день і секція. */
     private const HEADER_ROWS = 2;
+
+    /** Прихована колонка A з ключами учнів. */
+    private const COL_OFFSET = 1;
+
+    /** Прихований рядок 1 з ключами колонок. */
+    private const ROW_OFFSET = 1;
 
     // Кольори як у Excel-звіті.
     private const HEADER_COLOR = '5B2C87';
@@ -74,9 +90,14 @@ class OrdersWorkbook
         $spreadsheetId = $this->layout->weekSpreadsheet($supplier, $monday);
         $sheetId = $this->ordersSheet($spreadsheetId);
 
-        $values = $report['columns']->isEmpty()
+        // Кольори, задані вручну, — до того, як вкладку буде переписано.
+        $userColors = $this->userColors($spreadsheetId);
+
+        $empty = $report['columns']->isEmpty();
+        $rows = $this->sheetOrder($report['rows']);
+        $values = $empty
             ? [['На цей тиждень немає ні меню, ні замовлень.']]
-            : (new SupplierOrdersWeekExport($report['columns'], $report['rows']))->array();
+            : $this->sheetValues($report['columns'], $rows);
 
         $columnCount = max(1, ...array_map('count', $values));
 
@@ -95,8 +116,8 @@ class OrdersWorkbook
                     'gridProperties' => [
                         'rowCount' => max(100, count($values) + 20),
                         'columnCount' => max(26, $columnCount),
-                        'frozenRowCount' => $report['columns']->isEmpty() ? 0 : self::HEADER_ROWS,
-                        'frozenColumnCount' => $report['columns']->isEmpty() ? 0 : self::FIXED_COLUMNS,
+                        'frozenRowCount' => $empty ? 0 : self::ROW_OFFSET + self::HEADER_ROWS,
+                        'frozenColumnCount' => $empty ? 0 : self::COL_OFFSET + self::FIXED_COLUMNS,
                     ],
                 ],
                 'fields' => 'gridProperties(rowCount,columnCount,frozenRowCount,frozenColumnCount)',
@@ -106,10 +127,12 @@ class OrdersWorkbook
         $this->client->clearValues($spreadsheetId, self::ORDERS_TITLE);
         $this->client->updateValues($spreadsheetId, self::ORDERS_TITLE, $values);
 
-        if ($report['columns']->isNotEmpty()) {
+        if (! $empty) {
             $this->client->batchUpdate($spreadsheetId, [
                 ...$this->weekFormatting($sheetId, $report['columns'], count($values)),
-                ...$this->cancelledCells($sheetId, $report['columns'], $report['rows']),
+                ...$this->cancelledCells($sheetId, $report['columns'], $rows),
+                // Останнім — ручні кольори: вони важливіші за червоне тло скасування.
+                ...$this->restoreColors($sheetId, $report['columns'], $rows, $userColors),
             ]);
         }
     }
@@ -152,6 +175,163 @@ class OrdersWorkbook
         }
 
         $this->client->appendValues($spreadsheetId, self::JOURNAL_TITLE, $rows);
+    }
+
+    /**
+     * Рядки таблиці: шкільні класи → курси коледжу → вчителі, усередині — за ПІБ.
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function sheetOrder(Collection $rows): Collection
+    {
+        // Collator знає український алфавіт (і, ї, є); без intl — звичайне порівняння.
+        $collator = class_exists(\Collator::class) ? new \Collator('uk_UA') : null;
+
+        return $rows
+            ->sort(function (array $a, array $b) use ($collator): int {
+                $byClass = ($a['class_order'] ?? [9]) <=> ($b['class_order'] ?? [9]);
+
+                if ($byClass !== 0) {
+                    return $byClass;
+                }
+
+                return $collator?->compare($a['full_name'], $b['full_name']) ?? strcmp($a['full_name'], $b['full_name']);
+            })
+            ->values();
+    }
+
+    /**
+     * Прихований рядок ключів колонок + шапка й дані з Excel-звіту,
+     * до кожного рядка спереду — прихований ключ учня.
+     *
+     * @param  Collection<int, array<string, mixed>>  $columns
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return array<int, array<int, mixed>>
+     */
+    private function sheetValues(Collection $columns, Collection $rows): array
+    {
+        $export = (new SupplierOrdersWeekExport($columns, $rows))->array();
+
+        $values = [['', ...self::FIXED_KEYS, ...$columns->pluck('key')->all()]];
+
+        foreach ($export as $index => $line) {
+            $values[] = [
+                $index < self::HEADER_ROWS ? '' : static::rowKey($rows[$index - self::HEADER_ROWS]),
+                ...$line,
+            ];
+        }
+
+        return $values;
+    }
+
+    /** @param  array<string, mixed>  $row */
+    private static function rowKey(array $row): string
+    {
+        return 's'.($row['student_id'] ?? 0);
+    }
+
+    /**
+     * Фон, який людина задала вручну: [ключ учня][ключ колонки] => колір.
+     * Білий і червоне тло скасування — оформлення сайту, їх не беремо.
+     *
+     * @return array<string, array<string, array<string, float>>>
+     */
+    private function userColors(string $spreadsheetId): array
+    {
+        $grid = $this->client->gridColors($spreadsheetId, self::ORDERS_TITLE);
+        $columnKeys = array_map(fn (array $cell): string => $cell['value'], $grid[0] ?? []);
+        $colors = [];
+
+        foreach (array_slice($grid, self::ROW_OFFSET + self::HEADER_ROWS) as $cells) {
+            $rowKey = $cells[0]['value'] ?? '';
+
+            if (! preg_match('~^s\d+$~', $rowKey)) {
+                continue;
+            }
+
+            foreach ($cells as $index => $cell) {
+                $columnKey = $columnKeys[$index] ?? '';
+
+                if ($index === 0 || $columnKey === '' || $cell['color'] === null || $this->isOwnColor($cell['color'])) {
+                    continue;
+                }
+
+                $colors[$rowKey][$columnKey] = $cell['color'];
+            }
+        }
+
+        return $colors;
+    }
+
+    /** @param  array<string, float>  $color */
+    private function isOwnColor(array $color): bool
+    {
+        foreach (['FFFFFF', self::CANCELLED_COLOR] as $hex) {
+            $own = $this->color($hex);
+
+            if (abs(($color['red'] ?? 0) - $own['red']) < 0.01
+                && abs(($color['green'] ?? 0) - $own['green']) < 0.01
+                && abs(($color['blue'] ?? 0) - $own['blue']) < 0.01) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Повертає збережені кольори туди, де тепер ті самі учень і колонка.
+     *
+     * @param  Collection<int, array<string, mixed>>  $columns
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @param  array<string, array<string, array<string, float>>>  $userColors
+     * @return array<int, array<string, mixed>>
+     */
+    private function restoreColors(int $sheetId, Collection $columns, Collection $rows, array $userColors): array
+    {
+        if ($userColors === []) {
+            return [];
+        }
+
+        $columnIndex = collect([...self::FIXED_KEYS, ...$columns->pluck('key')->all()])
+            ->flip()
+            ->map(fn (int $index): int => self::COL_OFFSET + $index);
+
+        $requests = [];
+
+        foreach ($rows->values() as $position => $row) {
+            $rowIndex = self::ROW_OFFSET + self::HEADER_ROWS + $position;
+
+            foreach ($userColors[static::rowKey($row)] ?? [] as $columnKey => $color) {
+                if (! $columnIndex->has($columnKey)) {
+                    continue;
+                }
+
+                $requests[] = $this->backgroundRequest($sheetId, $rowIndex, $columnIndex[$columnKey], $color);
+            }
+        }
+
+        return $requests;
+    }
+
+    /**
+     * @param  array<string, float>  $color
+     * @return array<string, mixed>
+     */
+    private function backgroundRequest(int $sheetId, int $row, int $column, array $color): array
+    {
+        return ['repeatCell' => [
+            'range' => [
+                'sheetId' => $sheetId,
+                'startRowIndex' => $row,
+                'endRowIndex' => $row + 1,
+                'startColumnIndex' => $column,
+                'endColumnIndex' => $column + 1,
+            ],
+            'cell' => ['userEnteredFormat' => ['backgroundColor' => $color]],
+            'fields' => 'userEnteredFormat.backgroundColor',
+        ]];
     }
 
     /**
@@ -211,20 +391,12 @@ class OrdersWorkbook
                     continue;
                 }
 
-                $column = self::FIXED_COLUMNS + $columnIndex[$key];
-                $rowIndex = self::HEADER_ROWS + $position;
-
-                $requests[] = ['repeatCell' => [
-                    'range' => [
-                        'sheetId' => $sheetId,
-                        'startRowIndex' => $rowIndex,
-                        'endRowIndex' => $rowIndex + 1,
-                        'startColumnIndex' => $column,
-                        'endColumnIndex' => $column + 1,
-                    ],
-                    'cell' => ['userEnteredFormat' => ['backgroundColor' => $this->color(self::CANCELLED_COLOR)]],
-                    'fields' => 'userEnteredFormat.backgroundColor',
-                ]];
+                $requests[] = $this->backgroundRequest(
+                    $sheetId,
+                    self::ROW_OFFSET + self::HEADER_ROWS + $position,
+                    self::COL_OFFSET + self::FIXED_COLUMNS + $columnIndex[$key],
+                    $this->color(self::CANCELLED_COLOR),
+                );
             }
         }
 
@@ -240,7 +412,12 @@ class OrdersWorkbook
      */
     private function weekFormatting(int $sheetId, Collection $columns, int $rowCount): array
     {
-        $totalColumns = self::FIXED_COLUMNS + $columns->count();
+        // Таблиця починається після прихованого рядка ключів і прихованої колонки ключів.
+        $top = self::ROW_OFFSET;
+        $left = self::COL_OFFSET;
+        $daysLeft = $left + self::FIXED_COLUMNS;
+        $totalColumns = $daysLeft + $columns->count();
+
         $range = fn (int $startRow, int $endRow, int $startCol, int $endCol): array => [
             'sheetId' => $sheetId,
             'startRowIndex' => $startRow,
@@ -253,9 +430,12 @@ class OrdersWorkbook
         $thick = ['style' => 'SOLID_THICK', 'color' => $this->color(self::DAY_COLOR)];
 
         $requests = [
+            // Службові ключі людям не потрібні — ховаємо рядок 1 і колонку A.
+            $this->hideDimension($sheetId, 'ROWS', 0, $top),
+            $this->hideDimension($sheetId, 'COLUMNS', 0, $left),
             // Шапка: обидва рядки.
             ['repeatCell' => [
-                'range' => $range(0, self::HEADER_ROWS, 0, $totalColumns),
+                'range' => $range($top, $top + self::HEADER_ROWS, $left, $totalColumns),
                 'cell' => ['userEnteredFormat' => [
                     'backgroundColor' => $this->color(self::HEADER_COLOR),
                     'textFormat' => ['bold' => true, 'foregroundColor' => $this->color('FFFFFF')],
@@ -266,7 +446,7 @@ class OrdersWorkbook
             ]],
             // Рядок днів — темніший і по центру.
             ['repeatCell' => [
-                'range' => $range(0, 1, self::FIXED_COLUMNS, $totalColumns),
+                'range' => $range($top, $top + 1, $daysLeft, $totalColumns),
                 'cell' => ['userEnteredFormat' => [
                     'backgroundColor' => $this->color(self::DAY_COLOR),
                     'horizontalAlignment' => 'CENTER',
@@ -275,35 +455,35 @@ class OrdersWorkbook
             ]],
             // Дані.
             ['repeatCell' => [
-                'range' => $range(self::HEADER_ROWS, $rowCount, 0, $totalColumns),
+                'range' => $range($top + self::HEADER_ROWS, $rowCount, $left, $totalColumns),
                 'cell' => ['userEnteredFormat' => ['wrapStrategy' => 'WRAP', 'verticalAlignment' => 'MIDDLE']],
                 'fields' => 'userEnteredFormat(wrapStrategy,verticalAlignment)',
             ]],
             // Тонка сітка по всій таблиці, товста — праворуч від останнього дня.
             ['updateBorders' => [
-                'range' => $range(0, $rowCount, 0, $totalColumns),
+                'range' => $range($top, $rowCount, $left, $totalColumns),
                 'top' => $thin, 'bottom' => $thin, 'left' => $thin, 'right' => $thick,
                 'innerHorizontal' => $thin, 'innerVertical' => $thin,
             ]],
             // Ширина колонок: № / ПІБ / Клас / страви.
-            $this->columnWidth($sheetId, 0, 1, 40),
-            $this->columnWidth($sheetId, 1, 2, 220),
-            $this->columnWidth($sheetId, 2, 3, 110),
-            $this->columnWidth($sheetId, self::FIXED_COLUMNS, $totalColumns, 160),
+            $this->columnWidth($sheetId, $left, $left + 1, 40),
+            $this->columnWidth($sheetId, $left + 1, $left + 2, 220),
+            $this->columnWidth($sheetId, $left + 2, $left + 3, 110),
+            $this->columnWidth($sheetId, $daysLeft, $totalColumns, 160),
             // Рядок секцій вищий — там склад комплексу.
             ['updateDimensionProperties' => [
-                'range' => ['sheetId' => $sheetId, 'dimension' => 'ROWS', 'startIndex' => 1, 'endIndex' => 2],
+                'range' => ['sheetId' => $sheetId, 'dimension' => 'ROWS', 'startIndex' => $top + 1, 'endIndex' => $top + 2],
                 'properties' => ['pixelSize' => 110],
                 'fields' => 'pixelSize',
             ]],
         ];
 
         // № / Прізвище / Клас — об'єднані по вертикалі.
-        foreach (range(0, self::FIXED_COLUMNS - 1) as $column) {
-            $requests[] = ['mergeCells' => ['range' => $range(0, self::HEADER_ROWS, $column, $column + 1), 'mergeType' => 'MERGE_ALL']];
+        foreach (range($left, $daysLeft - 1) as $column) {
+            $requests[] = ['mergeCells' => ['range' => $range($top, $top + self::HEADER_ROWS, $column, $column + 1), 'mergeType' => 'MERGE_ALL']];
         }
 
-        $columnIndex = self::FIXED_COLUMNS;
+        $columnIndex = $daysLeft;
 
         foreach ($columns->values() as $position => $column) {
             if ($column['first_of_day'] ?? false) {
@@ -312,17 +492,27 @@ class OrdersWorkbook
                     ->count();
 
                 if ($span > 1) {
-                    $requests[] = ['mergeCells' => ['range' => $range(0, 1, $columnIndex, $columnIndex + $span), 'mergeType' => 'MERGE_ALL']];
+                    $requests[] = ['mergeCells' => ['range' => $range($top, $top + 1, $columnIndex, $columnIndex + $span), 'mergeType' => 'MERGE_ALL']];
                 }
 
                 // Товста рамка ліворуч від першої колонки дня.
-                $requests[] = ['updateBorders' => ['range' => $range(0, $rowCount, $columnIndex, $columnIndex + 1), 'left' => $thick]];
+                $requests[] = ['updateBorders' => ['range' => $range($top, $rowCount, $columnIndex, $columnIndex + 1), 'left' => $thick]];
             }
 
             $columnIndex++;
         }
 
         return $requests;
+    }
+
+    /** @return array<string, mixed> */
+    private function hideDimension(int $sheetId, string $dimension, int $start, int $end): array
+    {
+        return ['updateDimensionProperties' => [
+            'range' => ['sheetId' => $sheetId, 'dimension' => $dimension, 'startIndex' => $start, 'endIndex' => $end],
+            'properties' => ['hiddenByUser' => true],
+            'fields' => 'hiddenByUser',
+        ]];
     }
 
     /** @return array<string, mixed> */
