@@ -89,6 +89,17 @@ class AdminPanelTest extends TestCase
         Livewire::test(EditSupplier::class, ['record' => $supplier->getRouteKey()])->assertActionVisible('driveFolder');
     }
 
+    public function test_orders_page_links_to_the_food_folder(): void
+    {
+        Livewire::test(ListOrders::class)->assertActionHidden('driveFolder');
+
+        GoogleDriveItem::create(['key' => 'root', 'drive_id' => 'food-root']);
+
+        Livewire::test(ListOrders::class)
+            ->assertActionVisible('driveFolder')
+            ->assertSee('https://drive.google.com/drive/folders/food-root');
+    }
+
     public function test_settings_link_to_the_food_folder(): void
     {
         config(['services.google.client_id' => 'client-id', 'services.google.client_secret' => 'client-secret']);

@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Orders\Pages;
 use App\Exports\OrdersBySupplierExport;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Models\Order;
+use App\Services\GoogleSheets\DriveLayout;
 use App\Services\Orders\OrderDeletion;
 use App\Services\Reports\OrderExportService;
 use Carbon\CarbonImmutable;
@@ -25,6 +26,14 @@ class ListOrders extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('driveFolder')
+                ->label('Папка '.DriveLayout::ROOT_NAME.' на Google Диску')
+                ->icon('heroicon-o-folder')
+                ->color('gray')
+                // Папку створює сайт після підключення Диска — до того кнопки немає.
+                ->visible(fn (): bool => DriveLayout::rootFolderUrl() !== null)
+                ->url(fn (): ?string => DriveLayout::rootFolderUrl())
+                ->openUrlInNewTab(),
             static::exportAction(
                 name: 'exportPupils',
                 label: 'Експорт: учні',
