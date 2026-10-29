@@ -4,7 +4,9 @@ namespace App\Filament\Supplier\Resources\Orders\Pages;
 
 use App\Filament\Supplier\Concerns\ExportsOrdersReport;
 use App\Filament\Supplier\Resources\Orders\OrderResource;
+use App\Services\GoogleSheets\DriveLayout;
 use App\Services\Reports\SupplierOrdersWeekService;
+use Filament\Actions\Action;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Filament\Forms\Components\DatePicker;
@@ -91,6 +93,14 @@ class ListOrders extends Page implements HasForms
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('driveFolder')
+                ->label('Папка на Google Диску')
+                ->icon('heroicon-o-folder')
+                ->color('gray')
+                // Папку створює сайт з першим замовленням — до того кнопки немає.
+                ->visible(fn (): bool => DriveLayout::supplierFolderUrl($this->supplier()) !== null)
+                ->url(fn (): ?string => DriveLayout::supplierFolderUrl($this->supplier()))
+                ->openUrlInNewTab(),
             $this->weekOrdersExportAction(),
             $this->dayOrdersExportAction(),
         ];

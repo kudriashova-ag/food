@@ -105,6 +105,17 @@ class SupplierOrdersPageTest extends TestCase
             ->assertDontSee('Сирники');
     }
 
+    public function test_google_drive_folder_button_appears_once_the_folder_exists(): void
+    {
+        Livewire::test(ListOrders::class)->assertActionHidden('driveFolder');
+
+        \App\Models\GoogleDriveItem::create(['key' => "supplier:{$this->supplier->id}", 'drive_id' => 'folder-123']);
+
+        Livewire::test(ListOrders::class)
+            ->assertActionVisible('driveFolder')
+            ->assertSee('https://drive.google.com/drive/folders/folder-123');
+    }
+
     public function test_day_export_returns_a_file(): void
     {
         $order = $this->order();
