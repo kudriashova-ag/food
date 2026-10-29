@@ -19,17 +19,19 @@ use Illuminate\Support\Collection;
  * (для комплексу просто «Комплекс», для решти — повна назва) або
  * порожньо, якщо на цю секцію нічого не замовлено.
  *
- * Скасовані позиції не враховуються.
+ * Скасовані позиції не враховуються — хіба що з $withCancelled (Google Таблиця):
+ * тоді вони теж потрапляють у клітинки, а cancelled позначає, які саме,
+ * щоб їх можна було виділити кольором. Активна позиція важливіша за скасовану.
  */
 class SupplierOrdersWeekService
 {
     /**
      * @return array{
      *     columns: Collection<int, array{key: string, date: CarbonImmutable, section_title: string, section_type: MenuSectionType|null, price: float|null, is_complex: bool, complex_dishes: string|null}>,
-     *     rows: Collection<int, array{full_name: string, class: string, cells: array<string, string>}>
+     *     rows: Collection<int, array{full_name: string, class: string, cells: array<string, string>, cancelled: array<string, true>}>
      * }
      */
-    public function build(Supplier $supplier, CarbonInterface|string $from, CarbonInterface|string $to): array
+    public function build(Supplier $supplier, CarbonInterface|string $from, CarbonInterface|string $to, bool $withCancelled = false): array
     {
         $start = CarbonImmutable::parse($from)->startOfDay();
         $end = CarbonImmutable::parse($to)->startOfDay();
@@ -38,7 +40,7 @@ class SupplierOrdersWeekService
             ->where('supplier_id', $supplier->id)
             ->whereDate('service_date', '>=', $start->toDateString())
             ->whereDate('service_date', '<=', $end->toDateString())
-            ->active()
+            ->when(! $withCancelled, fn ($query) => $query->active())
             ->with('student.schoolClass')
             ->get();
 
@@ -157,13 +159,22 @@ class SupplierOrdersWeekService
                 $student = $studentLines->first()->student;
 
                 $cells = [];
+                $cancelled = [];
 
-                foreach ($studentLines as $line) {
+                // Скасовані спершу, активні після: якщо в ту саму секцію замовили
+                // знову, клітинка показує актуальну страву без позначки скасування.
+                foreach ($studentLines->sortBy(fn (OrderLine $line): int => $line->isCancelled() ? 0 : 1) as $line) {
                     $key = $line->service_date->toDateString().'|'.$this->sectionKey($line);
 
                     $cells[$key] = $line->section_type === MenuSectionType::Complex
                         ? 'Комплекс'
                         : $line->dish_name;
+
+                    if ($line->isCancelled()) {
+                        $cancelled[$key] = true;
+                    } else {
+                        unset($cancelled[$key]);
+                    }
                 }
 
                 return [
@@ -171,6 +182,7 @@ class SupplierOrdersWeekService
                     // Вчитель класу не має — за домовленістю пишемо «Вчитель».
                     'class' => $student->school_class_id === null ? 'Вчитель' : ($student->schoolClass?->title ?? ''),
                     'cells' => $cells,
+                    'cancelled' => $cancelled,
                 ];
             })
             ->sortBy('full_name')

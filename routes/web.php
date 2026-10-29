@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\StudentLoginController;
 use App\Http\Controllers\CancellationController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\ConsentController;
+use App\Http\Controllers\GoogleDriveController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\MenuController;
 use App\Http\Controllers\NotificationSettingsController;
@@ -68,6 +69,13 @@ Route::middleware('student')->group(function (): void {
         Route::post('/settings/telegram', [NotificationSettingsController::class, 'connectTelegram'])->name('settings.telegram.connect');
         Route::delete('/settings/telegram/{link}', [NotificationSettingsController::class, 'disconnectTelegram'])->name('settings.telegram.disconnect');
     });
+});
+
+// Підключення Google Диска адміністратором (кнопка в «Налаштуваннях» адмінки).
+// Адреса callback має бути вписана в OAuth-клієнт у Google Cloud Console.
+Route::middleware('auth')->group(function (): void {
+    Route::get('/admin/google/connect', [GoogleDriveController::class, 'connect'])->name('google.connect');
+    Route::get('/admin/google/callback', [GoogleDriveController::class, 'callback'])->name('google.callback');
 });
 
 // Вебхук бота: без сесії й CSRF, захищений секретом в адресі.

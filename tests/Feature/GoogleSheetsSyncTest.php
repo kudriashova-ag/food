@@ -3,23 +3,27 @@
 namespace Tests\Feature;
 
 use App\Enums\MenuSectionType;
+use App\Enums\OrderLineStatus;
 use App\Enums\UserRole;
 use App\Jobs\AppendToGoogleSheetJournal;
 use App\Jobs\SyncWeekToGoogleSheet;
+use App\Models\GoogleDriveItem;
 use App\Models\Order;
 use App\Models\SchoolClass;
 use App\Models\Setting;
 use App\Models\Student;
 use App\Models\Supplier;
 use App\Models\User;
-use App\Services\GoogleSheets\GoogleSheetsClient;
+use App\Services\GoogleSheets\GoogleAuth;
 use App\Services\GoogleSheets\OrderSheetSync;
 use App\Services\GoogleSheets\OrdersWorkbook;
 use App\Services\Orders\CancellationService;
 use App\Services\Orders\OrderDeletion;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
@@ -31,13 +35,12 @@ class GoogleSheetsSyncTest extends TestCase
 
     private const SERVICE_DATE = '2026-09-08';   // вівторок; тиждень 07.09–11.09
 
-    private const SHEET_ID = 'TestSheetId1234567890abcdef';
-
     private Supplier $supplier;
 
     private Student $student;
 
-    private string $publicKey;
+    /** Підроблений Google Диск: id → [name, mimeType, parents, trashed]. */
+    private array $drive = [];
 
     protected function setUp(): void
     {
@@ -54,7 +57,7 @@ class GoogleSheetsSyncTest extends TestCase
         ]);
     }
 
-    public function test_nothing_is_queued_until_the_sheet_is_configured(): void
+    public function test_nothing_is_queued_until_google_drive_is_connected(): void
     {
         Queue::fake();
 
@@ -65,7 +68,7 @@ class GoogleSheetsSyncTest extends TestCase
 
     public function test_placed_order_goes_to_the_journal_and_its_week(): void
     {
-        $this->configure();
+        $this->connect();
         Queue::fake();
 
         $order = $this->order();
@@ -74,11 +77,12 @@ class GoogleSheetsSyncTest extends TestCase
         Queue::assertPushed(AppendToGoogleSheetJournal::class, function (AppendToGoogleSheetJournal $job) use ($order): bool {
             $row = $job->rows[0];
 
-            return $row[1] === 'Замовлено'
+            return $job->supplierId === $this->supplier->id
+                && $job->weekStart === '2026-09-07'
+                && $row[1] === 'Замовлено'
                 && $row[2] === $order->number
                 && $row[3] === 'Іваненко Марія'
                 && $row[4] === '5-А'
-                && $row[5] === 'Смачно'
                 && $row[6] === '08.09.2026'
                 && $row[8] === 'Борщ';
         });
@@ -88,7 +92,7 @@ class GoogleSheetsSyncTest extends TestCase
 
     public function test_cancellation_is_journaled_with_who_and_why(): void
     {
-        $this->configure();
+        $this->connect();
         Notification::fake();
         Queue::fake();
 
@@ -105,7 +109,7 @@ class GoogleSheetsSyncTest extends TestCase
 
     public function test_deleted_order_is_journaled_and_its_week_refreshed(): void
     {
-        $this->configure();
+        $this->connect();
         Queue::fake();
 
         $order = $this->order();
@@ -116,123 +120,195 @@ class GoogleSheetsSyncTest extends TestCase
         Queue::assertPushed(SyncWeekToGoogleSheet::class, fn (SyncWeekToGoogleSheet $job): bool => $job->weekStart === '2026-09-07');
     }
 
-    public function test_week_tab_is_created_filled_and_framed(): void
+    public function test_week_file_is_created_in_food_supplier_folder(): void
     {
-        $this->configure();
+        $this->connect();
         $this->order();
-        $this->fakeGoogle(sheets: []);
+        $this->fakeGoogle();
 
-        app(OrdersWorkbook::class)->writeWeek($this->supplier, \Carbon\CarbonImmutable::parse(self::SERVICE_DATE));
+        app(OrdersWorkbook::class)->writeWeek($this->supplier, CarbonImmutable::parse(self::SERVICE_DATE));
 
-        Http::assertSent(fn (Request $request): bool => str_contains($request->url(), ':batchUpdate')
-            && data_get($request->data(), 'requests.0.addSheet.properties.title') === 'Смачно 07.09–11.09.2026');
+        $byName = collect($this->drive)->keyBy('name');
+
+        $this->assertSame('application/vnd.google-apps.folder', $byName['Food']['mimeType']);
+        $this->assertSame([$byName['Food']['id']], $byName['Смачно']['parents']);
+        $this->assertSame('application/vnd.google-apps.spreadsheet', $byName['Смачно з 07.09 до 11.09']['mimeType']);
+        $this->assertSame([$byName['Смачно']['id']], $byName['Смачно з 07.09 до 11.09']['parents']);
+
+        // «Аркуш1» нової таблиці перейменовується на «Замовлення».
+        Http::assertSent(fn (Request $request): bool => data_get($request->data(), 'requests.0.updateSheetProperties.properties.title') === 'Замовлення');
 
         Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT'
-            && data_get($request->data(), 'values.0.1') === "Прізвище, ім'я"
+            && str_contains(urldecode($request->url()), "'Замовлення'")
             && data_get($request->data(), 'values.2.1') === 'Іваненко Марія');
 
-        // Очищення вкладки: тіло — об'єкт «{}», на «[]» Google відповідає 400.
         Http::assertSent(fn (Request $request): bool => str_contains($request->url(), ':clear') && $request->body() === '{}');
-
-        // Товста рамка ліворуч від першої колонки дня.
-        Http::assertSent(fn (Request $request): bool => str_contains($request->url(), ':batchUpdate')
-            && str_contains(json_encode($request->data()), 'SOLID_THICK'));
+        Http::assertSent(fn (Request $request): bool => str_contains(json_encode($request->data()), 'SOLID_THICK'));
     }
 
-    public function test_current_week_tabs_are_moved_first(): void
+    public function test_cancelled_dish_stays_in_the_cell_on_a_red_background(): void
     {
-        $this->configure();
-        $this->travelTo('2026-09-08 10:00');
+        $this->connect();
+        $this->order(status: OrderLineStatus::Cancelled);
+        $this->fakeGoogle();
 
-        $this->fakeGoogle(sheets: [
-            ['sheetId' => 1, 'title' => 'Смачно 31.08–04.09.2026', 'index' => 0],
-            ['sheetId' => 2, 'title' => OrdersWorkbook::JOURNAL_TITLE, 'index' => 1],
-            ['sheetId' => 3, 'title' => 'Смачно 07.09–11.09.2026', 'index' => 2],
-        ]);
+        app(OrdersWorkbook::class)->writeWeek($this->supplier, CarbonImmutable::parse(self::SERVICE_DATE));
 
-        app(OrdersWorkbook::class)->reorderTabs();
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT' && data_get($request->data(), 'values.2.3') === 'Борщ');
 
         Http::assertSent(function (Request $request): bool {
-            $moves = collect(data_get($request->data(), 'requests', []))
-                ->mapWithKeys(fn (array $r): array => [data_get($r, 'updateSheetProperties.properties.sheetId') => data_get($r, 'updateSheetProperties.properties.index')]);
-
-            return $moves->get(3) === 0 && $moves->get(2) === 1 && $moves->get(1) === 2;
+            return collect(data_get($request->data(), 'requests', []))->contains(
+                fn (array $r): bool => data_get($r, 'repeatCell.fields') === 'userEnteredFormat.backgroundColor'
+                    && data_get($r, 'repeatCell.range.startRowIndex') === 2
+                    && data_get($r, 'repeatCell.range.startColumnIndex') === 3
+                    && round(data_get($r, 'repeatCell.cell.userEnteredFormat.backgroundColor.red'), 2) === 0.92,
+            );
         });
     }
 
-    public function test_journal_tab_is_created_with_a_header(): void
+    public function test_existing_files_are_reused_and_deleted_ones_recreated(): void
     {
-        $this->configure();
-        $this->fakeGoogle(sheets: []);
+        $this->connect();
+        $this->order();
+        $this->fakeGoogle();
+        $workbook = app(OrdersWorkbook::class);
 
-        app(OrdersWorkbook::class)->appendJournal([['08.09.2026 10:00:00', 'Замовлено']]);
+        $workbook->writeWeek($this->supplier, CarbonImmutable::parse(self::SERVICE_DATE));
+        $this->assertCount(3, $this->drive);
 
-        Http::assertSent(fn (Request $request): bool => data_get($request->data(), 'requests.0.addSheet.properties.title') === 'Журнал змін');
+        $workbook->writeWeek($this->supplier, CarbonImmutable::parse(self::SERVICE_DATE));
+        $this->assertCount(3, $this->drive, 'Повторне оновлення не має створювати нові файли');
+
+        // Файл тижня видалили з Диска — створиться новий.
+        $weekId = GoogleDriveItem::query()->where('key', 'like', 'week:%')->value('drive_id');
+        $this->drive[$weekId]['trashed'] = true;
+
+        $workbook->writeWeek($this->supplier, CarbonImmutable::parse(self::SERVICE_DATE));
+        $this->assertCount(4, $this->drive);
+        $this->assertNotSame($weekId, GoogleDriveItem::query()->where('key', 'like', 'week:%')->value('drive_id'));
+    }
+
+    public function test_journal_tab_is_added_after_orders_with_a_header(): void
+    {
+        $this->connect();
+        $this->fakeGoogle();
+
+        app(OrdersWorkbook::class)->appendJournal($this->supplier, CarbonImmutable::parse(self::SERVICE_DATE), [['08.09.2026 10:00:00', 'Замовлено']]);
+
+        Http::assertSent(fn (Request $request): bool => data_get($request->data(), 'requests.0.addSheet.properties.title') === 'Журнал змін'
+            && data_get($request->data(), 'requests.0.addSheet.properties.index') === 1);
         Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT' && data_get($request->data(), 'values.0') === OrdersWorkbook::JOURNAL_HEADER);
         Http::assertSent(fn (Request $request): bool => str_contains($request->url(), ':append') && data_get($request->data(), 'values.0.1') === 'Замовлено');
     }
 
-    public function test_access_token_is_a_signed_jwt_and_is_cached(): void
+    public function test_connecting_stores_the_refresh_token_encrypted(): void
     {
-        $this->configure();
-        $this->fakeGoogle(sheets: []);
+        $this->clientConfig();
 
-        $client = app(GoogleSheetsClient::class);
-        $client->sheets();
-        $client->sheets();
+        $idToken = 'x.'.rtrim(strtr(base64_encode(json_encode(['email' => 'school@gmail.com'])), '+/', '-_'), '=').'.y';
 
-        $tokenRequests = Http::recorded(fn (Request $request): bool => str_contains($request->url(), 'oauth2.googleapis.com'));
-        $this->assertCount(1, $tokenRequests);
+        Http::fake(['oauth2.googleapis.com/*' => Http::response([
+            'access_token' => 'access-1', 'expires_in' => 3600, 'refresh_token' => 'refresh-1', 'id_token' => $idToken,
+        ])]);
 
-        [$header, $claims, $signature] = explode('.', $tokenRequests->first()[0]['assertion']);
-        $decode = fn (string $part): string => base64_decode(strtr($part, '-_', '+/'));
+        GoogleAuth::connect('auth-code');
 
-        $this->assertSame('sheets@test.iam.gserviceaccount.com', json_decode($decode($claims), true)['iss']);
-        $this->assertSame(1, openssl_verify("{$header}.{$claims}", $decode($signature), $this->publicKey, OPENSSL_ALGO_SHA256));
+        $this->assertTrue(GoogleAuth::isConnected());
+        $this->assertSame('school@gmail.com', GoogleAuth::accountEmail());
+        $this->assertNotSame('refresh-1', Setting::get('google_refresh_token'));
+        $this->assertSame('refresh-1', Crypt::decryptString(Setting::get('google_refresh_token')));
     }
 
-    public function test_spreadsheet_id_is_taken_from_the_link(): void
+    public function test_access_token_is_refreshed_once_and_cached(): void
     {
-        Setting::put('google_sheet_url', 'https://docs.google.com/spreadsheets/d/1I1zUgUB08bPYs81hBqgOgJ_PpIMw8y_blsppmpEO_t0/edit?gid=2006214835#gid=2006214835');
+        $this->connect();
+        $this->fakeGoogle();
 
-        $this->assertSame('1I1zUgUB08bPYs81hBqgOgJ_PpIMw8y_blsppmpEO_t0', GoogleSheetsClient::spreadsheetId());
+        GoogleAuth::accessToken();
+        GoogleAuth::accessToken();
+
+        $refreshes = Http::recorded(fn (Request $request): bool => str_contains($request->url(), 'oauth2.googleapis.com'));
+
+        $this->assertCount(1, $refreshes);
+        $this->assertSame('refresh_token', $refreshes->first()[0]['grant_type']);
+        $this->assertSame('refresh-1', $refreshes->first()[0]['refresh_token']);
     }
 
-    /**
-     * Тестовий ключ лише для перевірки підпису — він ні до чого не дає доступу.
-     * Генерувати на льоту не можна: на Windows PHP без openssl.cnf ключ не створює.
-     */
-    private function configure(): void
+    public function test_callback_with_a_wrong_state_is_rejected(): void
     {
-        $privateKey = (string) file_get_contents(base_path('tests/Fixtures/google-test-key.pem'));
-        $this->publicKey = openssl_pkey_get_details(openssl_pkey_get_private($privateKey))['key'];
+        $this->clientConfig();
+        $admin = User::create(['name' => 'Адміністратор', 'email' => 'admin@test.local', 'password' => 'secret', 'role' => UserRole::Admin]);
 
-        $path = tempnam(sys_get_temp_dir(), 'gsa');
-        file_put_contents($path, json_encode([
-            'client_email' => 'sheets@test.iam.gserviceaccount.com',
-            'private_key' => $privateKey,
-        ]));
+        $this->actingAs($admin)
+            ->withSession(['google_oauth_state' => 'expected'])
+            ->get(route('google.callback', ['state' => 'forged', 'code' => 'x']))
+            ->assertRedirect()
+            ->assertSessionHas('google_error');
 
-        config(['services.google_sheets.credentials' => $path]);
-        Setting::put('google_sheet_url', 'https://docs.google.com/spreadsheets/d/'.self::SHEET_ID.'/edit');
+        $this->assertFalse(GoogleAuth::isConnected());
+    }
+
+    public function test_only_admin_can_connect_google_drive(): void
+    {
+        $this->clientConfig();
+
+        $this->actingAs($this->student->user)
+            ->get(route('google.connect'))
+            ->assertForbidden();
+    }
+
+    private function clientConfig(): void
+    {
+        config(['services.google.client_id' => 'client-id', 'services.google.client_secret' => 'client-secret']);
         Cache::flush();
     }
 
-    /** @param  array<int, array{sheetId: int, title: string, index: int}>  $sheets */
-    private function fakeGoogle(array $sheets): void
+    private function connect(): void
     {
-        Http::fake([
-            'oauth2.googleapis.com/*' => Http::response(['access_token' => 'test-token', 'expires_in' => 3600]),
-            'sheets.googleapis.com/v4/spreadsheets/*:batchUpdate' => Http::response(['replies' => [['addSheet' => ['properties' => ['sheetId' => 42]]]]]),
-            'sheets.googleapis.com/v4/spreadsheets/*/values/*' => Http::response([]),
-            'sheets.googleapis.com/v4/spreadsheets/*' => Http::response([
-                'properties' => ['title' => 'Замовлення'],
-                'sheets' => array_map(fn (array $sheet): array => ['properties' => $sheet], $sheets),
-            ]),
-        ]);
+        $this->clientConfig();
+
+        Setting::put('google_refresh_token', Crypt::encryptString('refresh-1'));
+        Setting::put('google_account_email', 'school@gmail.com');
     }
 
-    private function order(): Order
+    private function fakeGoogle(): void
+    {
+        Http::fake(function (Request $request) {
+            $url = $request->url();
+
+            if (str_contains($url, 'oauth2.googleapis.com')) {
+                return Http::response(['access_token' => 'test-token', 'expires_in' => 3600]);
+            }
+
+            if (str_contains($url, 'drive/v3/files')) {
+                if ($request->method() === 'POST') {
+                    $id = 'drive-'.(count($this->drive) + 1);
+                    $this->drive[$id] = ['id' => $id, 'name' => $request['name'], 'mimeType' => $request['mimeType'], 'parents' => $request['parents'] ?? [], 'trashed' => false];
+
+                    return Http::response(['id' => $id]);
+                }
+
+                $id = urldecode(basename(parse_url($url, PHP_URL_PATH)));
+
+                return isset($this->drive[$id])
+                    ? Http::response($this->drive[$id])
+                    : Http::response(['error' => ['code' => 404]], 404);
+            }
+
+            if (str_contains($url, ':batchUpdate')) {
+                return Http::response(['replies' => [['addSheet' => ['properties' => ['sheetId' => 42]]]]]);
+            }
+
+            if (str_contains($url, '/values/')) {
+                return Http::response([]);
+            }
+
+            // Нова таблиця: лише «Аркуш1».
+            return Http::response(['sheets' => [['properties' => ['sheetId' => 0, 'title' => 'Аркуш1', 'index' => 0]]]]);
+        });
+    }
+
+    private function order(OrderLineStatus $status = OrderLineStatus::Active): Order
     {
         $order = Order::create([
             'number' => 'ЗМ-20260901-0001',
@@ -251,6 +327,7 @@ class GoogleSheetsSyncTest extends TestCase
             'section_title' => 'Перше',
             'quantity' => 1,
             'unit_price' => 45,
+            'status' => $status,
         ]);
 
         return $order->load('lines');

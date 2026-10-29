@@ -3,7 +3,8 @@
 namespace App\Filament\Pages;
 
 use App\Models\Setting;
-use App\Services\GoogleSheets\GoogleSheetsClient;
+use App\Services\GoogleSheets\DriveLayout;
+use App\Services\GoogleSheets\GoogleAuth;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
@@ -15,6 +16,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Artisan;
@@ -46,7 +48,6 @@ class SchoolSettings extends Page implements HasForms
         'support_email' => '',
         'support_telegram_chat_id' => '',
         'service_info_text' => '',
-        'google_sheet_url' => '',
     ];
 
     /** @var array<string, mixed>|null */
@@ -61,6 +62,8 @@ class SchoolSettings extends Page implements HasForms
         }
 
         $this->form->fill($state);
+
+        $this->notifyAboutGoogleCallback();
     }
 
     public function form(Schema $schema): Schema
@@ -119,27 +122,44 @@ class SchoolSettings extends Page implements HasForms
                             ->helperText('Дізнатися свій ID можна в бота @userinfobot.'),
                     ]),
 
-                Section::make('Google Таблиця замовлень')
-                    ->description('Кожне замовлення, скасування й видалення потрапляє в таблицю: окрема вкладка на кожного постачальника й тиждень харчування, плюс «Журнал змін». Вкладки поточного тижня — першими зліва.')
+                Section::make('Google Диск: файли замовлень')
+                    ->description('Кожне замовлення, скасування й видалення потрапляє на Google Диск: Food / Постачальник / «Постачальник з 19.10 до 23.10» — окремий файл на кожен тиждень, у ньому вкладки «Замовлення» (скасоване — червоним) і «Журнал змін».')
                     ->schema([
-                        TextInput::make('google_sheet_url')
-                            ->label('Посилання на Google Таблицю')
-                            ->placeholder('https://docs.google.com/spreadsheets/d/…/edit')
-                            ->maxLength(500)
-                            ->helperText(fn (): string => static::googleAccessHint()),
+                        Text::make(fn (): string => static::googleStatus()),
 
                         Actions::make([
+                            Action::make('connectGoogle')
+                                ->label(fn (): string => GoogleAuth::isConnected() ? 'Підключити інший акаунт' : 'Підключити Google Диск')
+                                ->icon('heroicon-o-link')
+                                ->visible(fn (): bool => GoogleAuth::hasClient())
+                                ->url(fn (): string => route('google.connect')),
+
                             Action::make('testGoogleSheet')
-                                ->label('Перевірити з\'єднання')
+                                ->label("Перевірити з'єднання")
                                 ->icon('heroicon-o-signal')
                                 ->color('gray')
-                                ->action(fn () => $this->testGoogleSheet()),
+                                ->visible(fn (): bool => GoogleAuth::isConnected())
+                                ->action(fn () => $this->testGoogleDrive()),
 
                             Action::make('syncGoogleSheet')
                                 ->label('Оновити поточний і наступний тиждень')
                                 ->icon('heroicon-o-arrow-path')
                                 ->color('gray')
-                                ->action(fn () => $this->syncGoogleSheet()),
+                                ->visible(fn (): bool => GoogleAuth::isConnected())
+                                ->action(fn () => $this->syncGoogleDrive()),
+
+                            Action::make('disconnectGoogle')
+                                ->label('Відключити')
+                                ->icon('heroicon-o-x-mark')
+                                ->color('danger')
+                                ->visible(fn (): bool => GoogleAuth::isConnected())
+                                ->requiresConfirmation()
+                                ->modalDescription('Нові замовлення перестануть потрапляти на Google Диск. Уже створені файли лишаться на Диску.')
+                                ->action(function (): void {
+                                    GoogleAuth::disconnect();
+
+                                    Notification::make()->title('Google Диск відключено')->success()->send();
+                                }),
                         ])->key('googleSheetActions'),
                     ]),
 
@@ -166,65 +186,63 @@ class SchoolSettings extends Page implements HasForms
         Notification::make()->title('Налаштування збережено')->success()->send();
     }
 
-    private static function googleAccessHint(): string
+    private static function googleStatus(): string
     {
-        $email = GoogleSheetsClient::serviceAccountEmail();
-
-        return $email === null
-            ? 'Ключ сервісного акаунта Google на сервері не знайдено (GOOGLE_SERVICE_ACCOUNT_JSON у .env) — без нього таблиця не оновлюватиметься.'
-            : "Відкрийте таблицю → «Поділитися» → додайте {$email} як «Редактор».";
-    }
-
-    /** Кнопки працюють із посиланням, яке зараз у полі, — зберігаємо його спершу. */
-    private function rememberGoogleSheetUrl(): void
-    {
-        Setting::put('google_sheet_url', trim((string) ($this->data['google_sheet_url'] ?? '')));
-    }
-
-    private function testGoogleSheet(): void
-    {
-        $this->rememberGoogleSheetUrl();
-
-        if (! GoogleSheetsClient::isConfigured()) {
-            Notification::make()
-                ->title('Не налаштовано')
-                ->body(GoogleSheetsClient::credentials() === null
-                    ? 'На сервері немає ключа сервісного акаунта Google.'
-                    : 'Вставте посилання на Google Таблицю.')
-                ->danger()
-                ->send();
-
-            return;
+        if (! GoogleAuth::hasClient()) {
+            return 'Не задано OAuth-клієнт Google (GOOGLE_CLIENT_ID і GOOGLE_CLIENT_SECRET у .env) — без нього підключити Диск не вийде.';
         }
 
-        try {
-            $title = app(GoogleSheetsClient::class)->title();
+        if (! GoogleAuth::isConnected()) {
+            return 'Google Диск не підключено. Натисніть «Підключити Google Диск» і увійдіть в акаунт, на Диску якого мають лежати файли.';
+        }
 
-            Notification::make()->title('З\'єднання є')->body("Таблиця «{$title}» доступна для запису.")->success()->send();
+        return 'Підключено: '.(GoogleAuth::accountEmail() ?? 'акаунт Google').'. Сайт бачить лише файли, які створив сам.';
+    }
+
+    /** Повідомлення після повернення з Google (див. GoogleDriveController). */
+    private function notifyAboutGoogleCallback(): void
+    {
+        if (session()->pull('google_connected')) {
+            Notification::make()->title('Google Диск підключено')->body(GoogleAuth::accountEmail())->success()->send();
+        }
+
+        if ($error = session()->pull('google_error')) {
+            Notification::make()->title('Google Диск не підключено')->body($error)->danger()->persistent()->send();
+        }
+    }
+
+    private function testGoogleDrive(): void
+    {
+        try {
+            app(DriveLayout::class)->rootFolder();
+
+            Notification::make()
+                ->title("З'єднання є")
+                ->body('Папка «'.DriveLayout::ROOT_NAME.'» на Google Диску доступна.')
+                ->success()
+                ->send();
         } catch (\Throwable $e) {
             report($e);
 
             Notification::make()
-                ->title('Немає доступу до таблиці')
-                ->body('Перевірте посилання й те, що таблицю розшарено на e-mail сервісного акаунта як «Редактор». '.$e->getMessage())
+                ->title('Немає доступу до Google Диска')
+                ->body('Спробуйте підключити Диск заново. '.$e->getMessage())
                 ->danger()
                 ->persistent()
                 ->send();
         }
     }
 
-    private function syncGoogleSheet(): void
+    private function syncGoogleDrive(): void
     {
-        $this->rememberGoogleSheetUrl();
-
         try {
             Artisan::call('school:sync-google-sheet', ['--next' => true]);
 
-            Notification::make()->title('Таблицю оновлено')->body(trim(Artisan::output()))->success()->send();
+            Notification::make()->title('Файли оновлено')->body(trim(Artisan::output()))->success()->send();
         } catch (\Throwable $e) {
             report($e);
 
-            Notification::make()->title('Не вдалося оновити таблицю')->body($e->getMessage())->danger()->persistent()->send();
+            Notification::make()->title('Не вдалося оновити файли')->body($e->getMessage())->danger()->persistent()->send();
         }
     }
 }

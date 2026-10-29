@@ -10,14 +10,15 @@ use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 /**
- * Google Таблиця замовлень: вкладка на кожну пару «постачальник + тиждень»
- * (той самий звіт, що «Замовлення за тиждень» в Excel) і «Журнал змін».
- *
- * Вкладки поточного тижня ставимо першими зліва: змусити Google відкривати
- * певну вкладку через API не можна — він пам'ятає останню переглянуту кожним.
+ * Файл тижня постачальника на Google Диску (див. DriveLayout):
+ *   «Замовлення»  — той самий звіт, що «Замовлення за тиждень» в Excel,
+ *                   скасовані страви лишаються в клітинках на червоному тлі;
+ *   «Журнал змін» — рядок на кожне замовлення, скасування, видалення.
  */
 class OrdersWorkbook
 {
+    public const ORDERS_TITLE = 'Замовлення';
+
     public const JOURNAL_TITLE = 'Журнал змін';
 
     public const JOURNAL_HEADER = [
@@ -36,20 +37,21 @@ class OrdersWorkbook
 
     private const GRID_COLOR = 'BFBFBF';
 
+    /** Тло скасованої страви. */
+    private const CANCELLED_COLOR = 'EA9999';
+
     public function __construct(
         private readonly GoogleSheetsClient $client,
         private readonly SupplierOrdersWeekService $reports,
+        private readonly DriveLayout $layout,
     ) {}
 
-    /** «Смачно 27.10–31.10.2026»: з роком, щоб упорядковувати тижні різних років. */
-    public static function weekTitle(Supplier $supplier, CarbonInterface $monday): string
+    /** «Смачно з 19.10 до 23.10» — назва файлу тижня (понеділок–п'ятниця). */
+    public static function fileTitle(Supplier $supplier, CarbonInterface $monday): string
     {
-        // Символи, яких Google не допускає в назві вкладки, і зайві пробіли.
-        $name = trim(preg_replace('~[\[\]*?/\\\\:]+~u', ' ', $supplier->name) ?? $supplier->name);
-
         $monday = static::weekStart($monday);
 
-        return sprintf('%s %s–%s', $name, $monday->format('d.m'), $monday->addDays(4)->format('d.m.Y'));
+        return sprintf('%s з %s до %s', DriveLayout::safeName($supplier->name), $monday->format('d.m'), $monday->addDays(4)->format('d.m'));
     }
 
     /** Понеділок тижня, до якого належить дата харчування. */
@@ -58,21 +60,19 @@ class OrdersWorkbook
         return CarbonImmutable::parse($date)->startOfWeek(CarbonInterface::MONDAY)->startOfDay();
     }
 
-    /** Перебудовує вкладку тижня постачальника за актуальними даними. */
+    /** Перебудовує вкладку «Замовлення» у файлі тижня за актуальними даними. */
     public function writeWeek(Supplier $supplier, CarbonInterface $monday): void
     {
         $monday = static::weekStart($monday);
-        $report = $this->reports->build($supplier, $monday, $monday->addDays(6));
-        $title = static::weekTitle($supplier, $monday);
+        $report = $this->reports->build($supplier, $monday, $monday->addDays(6), withCancelled: true);
 
-        $existing = collect($this->client->sheets())->firstWhere('title', $title);
-
-        // Ні меню, ні замовлень, а вкладки ще немає — нема чого й створювати.
-        if ($report['columns']->isEmpty() && $existing === null) {
+        // Ні меню, ні замовлень, а файлу ще немає — нема чого й створювати.
+        if ($report['columns']->isEmpty() && ! $this->layout->hasWeekSpreadsheet($supplier, $monday)) {
             return;
         }
 
-        $sheetId = $existing['sheetId'] ?? $this->addSheet($title);
+        $spreadsheetId = $this->layout->weekSpreadsheet($supplier, $monday);
+        $sheetId = $this->ordersSheet($spreadsheetId);
 
         $values = $report['columns']->isEmpty()
             ? [['На цей тиждень немає ні меню, ні замовлень.']]
@@ -82,7 +82,7 @@ class OrdersWorkbook
 
         // Спершу прибираємо старий вміст і оформлення: кількість колонок і рядків
         // між оновленнями змінюється, а об'єднані клітинки заважали б записові.
-        $this->client->batchUpdate([
+        $this->client->batchUpdate($spreadsheetId, [
             ['unmergeCells' => ['range' => ['sheetId' => $sheetId]]],
             ['repeatCell' => [
                 'range' => ['sheetId' => $sheetId],
@@ -103,32 +103,39 @@ class OrdersWorkbook
             ]],
         ]);
 
-        $this->client->clearValues($title);
-        $this->client->updateValues($title, $values);
+        $this->client->clearValues($spreadsheetId, self::ORDERS_TITLE);
+        $this->client->updateValues($spreadsheetId, self::ORDERS_TITLE, $values);
 
         if ($report['columns']->isNotEmpty()) {
-            $this->client->batchUpdate($this->weekFormatting($sheetId, $report['columns'], count($values)));
+            $this->client->batchUpdate($spreadsheetId, [
+                ...$this->weekFormatting($sheetId, $report['columns'], count($values)),
+                ...$this->cancelledCells($sheetId, $report['columns'], $report['rows']),
+            ]);
         }
-
-        $this->reorderTabs();
     }
 
     /**
-     * Дописує рядки в «Журнал змін», створюючи вкладку з шапкою за потреби.
+     * Дописує рядки в «Журнал змін» файлу тижня, створюючи вкладку з шапкою за потреби.
      *
      * @param  array<int, array<int, string|int|float|null>>  $rows
      */
-    public function appendJournal(array $rows): void
+    public function appendJournal(Supplier $supplier, CarbonInterface $monday, array $rows): void
     {
         if ($rows === []) {
             return;
         }
 
-        if (collect($this->client->sheets())->firstWhere('title', self::JOURNAL_TITLE) === null) {
-            $sheetId = $this->addSheet(self::JOURNAL_TITLE);
+        $spreadsheetId = $this->layout->weekSpreadsheet($supplier, static::weekStart($monday));
+        $sheets = collect($this->client->sheets($spreadsheetId));
 
-            $this->client->updateValues(self::JOURNAL_TITLE, [self::JOURNAL_HEADER]);
-            $this->client->batchUpdate([
+        if ($sheets->firstWhere('title', self::JOURNAL_TITLE) === null) {
+            // Вкладка «Замовлення» має бути першою — тож журнал додаємо після неї.
+            $this->ordersSheet($spreadsheetId);
+
+            $sheetId = $this->addSheet($spreadsheetId, self::JOURNAL_TITLE, index: 1);
+
+            $this->client->updateValues($spreadsheetId, self::JOURNAL_TITLE, [self::JOURNAL_HEADER]);
+            $this->client->batchUpdate($spreadsheetId, [
                 ['updateSheetProperties' => [
                     'properties' => ['sheetId' => $sheetId, 'gridProperties' => ['frozenRowCount' => 1]],
                     'fields' => 'gridProperties.frozenRowCount',
@@ -142,77 +149,86 @@ class OrdersWorkbook
                     'fields' => 'userEnteredFormat(textFormat,backgroundColor)',
                 ]],
             ]);
-
-            $this->reorderTabs();
         }
 
-        $this->client->appendValues(self::JOURNAL_TITLE, $rows);
+        $this->client->appendValues($spreadsheetId, self::JOURNAL_TITLE, $rows);
     }
 
     /**
-     * Порядок вкладок: поточний тиждень → «Журнал змін» → інші тижні від новіших
-     * до старіших → решта (наприклад, порожній «Аркуш1» нової таблиці).
+     * ID вкладки «Замовлення». У щойно створеній таблиці є лише «Аркуш1» —
+     * перейменовуємо його, а не додаємо ще одну вкладку.
      */
-    public function reorderTabs(): void
+    private function ordersSheet(string $spreadsheetId): int
     {
-        $currentMonday = static::weekStart(today());
+        $sheets = collect($this->client->sheets($spreadsheetId));
 
-        $sheets = collect($this->client->sheets())
-            ->map(fn (array $sheet): array => $sheet + ['monday' => $this->mondayFromTitle($sheet['title'])]);
+        $orders = $sheets->firstWhere('title', self::ORDERS_TITLE);
 
-        $current = $sheets->filter(fn (array $s): bool => $s['monday']?->equalTo($currentMonday) ?? false)->sortBy('title');
-        $journal = $sheets->where('title', self::JOURNAL_TITLE);
-        $weeks = $sheets
-            ->filter(fn (array $s): bool => $s['monday'] !== null && ! $s['monday']->equalTo($currentMonday))
-            ->sortBy([
-                fn (array $a, array $b): int => $b['monday'] <=> $a['monday'],
-                fn (array $a, array $b): int => strcmp($a['title'], $b['title']),
-            ]);
-        $rest = $sheets
-            ->filter(fn (array $s): bool => $s['monday'] === null && $s['title'] !== self::JOURNAL_TITLE)
-            ->sortBy('index');
-
-        $desired = $current->concat($journal)->concat($weeks)->concat($rest)->values();
-
-        if ($desired->pluck('sheetId')->all() === $sheets->sortBy('index')->pluck('sheetId')->values()->all()) {
-            return;
+        if ($orders !== null) {
+            return $orders['sheetId'];
         }
 
-        // Ставимо вкладки на місця зліва направо: кожна рухається лише ліворуч,
-        // тож позиції вже розставлених не збиваються (у Google переміщення
-        // праворуч рахує індекс інакше).
-        $this->client->batchUpdate($desired
-            ->map(fn (array $sheet, int $position): array => ['updateSheetProperties' => [
-                'properties' => ['sheetId' => $sheet['sheetId'], 'index' => $position],
-                'fields' => 'index',
-            ]])
-            ->all());
-    }
+        $spare = $sheets->sortBy('index')->first(fn (array $sheet): bool => $sheet['title'] !== self::JOURNAL_TITLE);
 
-    /** Понеділок тижня з назви «… 27.10–31.10.2026»; не тижнева вкладка — null. */
-    private function mondayFromTitle(string $title): ?CarbonImmutable
-    {
-        if (! preg_match('~(\d{2})\.(\d{2})–(\d{2})\.(\d{2})\.(\d{4})$~u', $title, $m)) {
-            return null;
+        if ($spare === null) {
+            return $this->addSheet($spreadsheetId, self::ORDERS_TITLE, index: 0);
         }
 
-        [$day, $month, $fridayMonth, $year] = [(int) $m[1], (int) $m[2], (int) $m[4], (int) $m[5]];
+        $this->client->batchUpdate($spreadsheetId, [
+            ['updateSheetProperties' => [
+                'properties' => ['sheetId' => $spare['sheetId'], 'title' => self::ORDERS_TITLE, 'index' => 0],
+                'fields' => 'title,index',
+            ]],
+        ]);
 
-        // Тиждень на межі років: понеділок у грудні, п'ятниця вже в січні.
-        $mondayYear = $month > $fridayMonth ? $year - 1 : $year;
-
-        return checkdate($month, $day, $mondayYear)
-            ? CarbonImmutable::create($mondayYear, $month, $day)->startOfDay()
-            : null;
+        return $spare['sheetId'];
     }
 
-    private function addSheet(string $title): int
+    private function addSheet(string $spreadsheetId, string $title, int $index): int
     {
-        $reply = $this->client->batchUpdate([
-            ['addSheet' => ['properties' => ['title' => $title, 'index' => 0]]],
+        $reply = $this->client->batchUpdate($spreadsheetId, [
+            ['addSheet' => ['properties' => ['title' => $title, 'index' => $index]]],
         ]);
 
         return (int) data_get($reply, 'replies.0.addSheet.properties.sheetId');
+    }
+
+    /**
+     * Червоне тло клітинок зі скасованими стравами.
+     *
+     * @param  Collection<int, array<string, mixed>>  $columns
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return array<int, array<string, mixed>>
+     */
+    private function cancelledCells(int $sheetId, Collection $columns, Collection $rows): array
+    {
+        $columnIndex = $columns->values()->pluck('key')->flip();
+        $requests = [];
+
+        foreach ($rows->values() as $position => $row) {
+            foreach (array_keys($row['cancelled'] ?? []) as $key) {
+                if (! $columnIndex->has($key)) {
+                    continue;
+                }
+
+                $column = self::FIXED_COLUMNS + $columnIndex[$key];
+                $rowIndex = self::HEADER_ROWS + $position;
+
+                $requests[] = ['repeatCell' => [
+                    'range' => [
+                        'sheetId' => $sheetId,
+                        'startRowIndex' => $rowIndex,
+                        'endRowIndex' => $rowIndex + 1,
+                        'startColumnIndex' => $column,
+                        'endColumnIndex' => $column + 1,
+                    ],
+                    'cell' => ['userEnteredFormat' => ['backgroundColor' => $this->color(self::CANCELLED_COLOR)]],
+                    'fields' => 'userEnteredFormat.backgroundColor',
+                ]];
+            }
+        }
+
+        return $requests;
     }
 
     /**
@@ -263,7 +279,7 @@ class OrdersWorkbook
                 'cell' => ['userEnteredFormat' => ['wrapStrategy' => 'WRAP', 'verticalAlignment' => 'MIDDLE']],
                 'fields' => 'userEnteredFormat(wrapStrategy,verticalAlignment)',
             ]],
-            // Тонка сітка по всій таблиці.
+            // Тонка сітка по всій таблиці, товста — праворуч від останнього дня.
             ['updateBorders' => [
                 'range' => $range(0, $rowCount, 0, $totalColumns),
                 'top' => $thin, 'bottom' => $thin, 'left' => $thin, 'right' => $thick,
@@ -291,7 +307,7 @@ class OrdersWorkbook
 
         foreach ($columns->values() as $position => $column) {
             if ($column['first_of_day'] ?? false) {
-                $span = $columns->slice($position)
+                $span = $columns->values()->slice($position)
                     ->takeWhile(fn (array $c): bool => $c['date']->equalTo($column['date']))
                     ->count();
 

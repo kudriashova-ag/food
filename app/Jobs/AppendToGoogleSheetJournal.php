@@ -2,12 +2,14 @@
 
 namespace App\Jobs;
 
+use App\Models\Supplier;
 use App\Services\GoogleSheets\GoogleSheetsClient;
 use App\Services\GoogleSheets\OrdersWorkbook;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
-/** Дописує рядки у вкладку «Журнал змін» Google Таблиці. */
+/** Дописує рядки у вкладку «Журнал змін» файлу тижня постачальника на Google Диску. */
 class AppendToGoogleSheetJournal implements ShouldQueue
 {
     use Queueable;
@@ -15,14 +17,20 @@ class AppendToGoogleSheetJournal implements ShouldQueue
     public int $backoff = 60;
 
     /** @param  array<int, array<int, string|int|float|null>>  $rows */
-    public function __construct(public array $rows) {}
+    public function __construct(
+        public int $supplierId,
+        public string $weekStart,
+        public array $rows,
+    ) {}
 
     public function handle(OrdersWorkbook $workbook): void
     {
-        if (! GoogleSheetsClient::isConfigured()) {
+        $supplier = Supplier::find($this->supplierId);
+
+        if ($supplier === null || ! GoogleSheetsClient::isConfigured()) {
             return;
         }
 
-        $workbook->appendJournal($this->rows);
+        $workbook->appendJournal($supplier, CarbonImmutable::parse($this->weekStart), $this->rows);
     }
 }

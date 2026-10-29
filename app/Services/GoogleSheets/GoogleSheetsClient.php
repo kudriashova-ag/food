@@ -2,143 +2,137 @@
 
 namespace App\Services\GoogleSheets;
 
-use App\Models\Setting;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
-use RuntimeException;
 
 /**
- * Мінімальний клієнт Google Sheets API від імені сервісного акаунта.
+ * Мінімальний клієнт Google Sheets і Drive API від імені підключеного акаунта.
  *
- * Без google/apiclient: на шаред-хостингу простіше обійтися двома сотнями рядків,
- * ніж тягнути десятки мегабайт залежностей. Токен — JWT, підписаний ключем
- * сервісного акаунта (RS256), обмінюється на access token і кешується.
+ * Без google/apiclient: на шаред-хостингу простіше обійтися кількома запитами,
+ * ніж тягнути десятки мегабайт залежностей.
  */
 class GoogleSheetsClient
 {
-    private const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
+    private const SHEETS_API = 'https://sheets.googleapis.com/v4/spreadsheets';
 
-    private const API = 'https://sheets.googleapis.com/v4/spreadsheets';
+    private const DRIVE_API = 'https://www.googleapis.com/drive/v3/files';
 
-    private const DEFAULT_TOKEN_URI = 'https://oauth2.googleapis.com/token';
+    public const FOLDER_MIME = 'application/vnd.google-apps.folder';
 
-    /** Чи є і ключ сервісного акаунта, і таблиця — без цього синхронізація просто вимкнена. */
+    public const SPREADSHEET_MIME = 'application/vnd.google-apps.spreadsheet';
+
+    /** Чи можна писати на Диск — без підключення синхронізація просто вимкнена. */
     public static function isConfigured(): bool
     {
-        return static::credentials() !== null && static::spreadsheetId() !== null;
+        return GoogleAuth::isConnected();
     }
 
-    /** ID таблиці з посилання, яке адміністратор вставив у «Налаштуваннях». */
-    public static function spreadsheetId(): ?string
+    // ---------- Drive ----------
+
+    /** Створює папку чи таблицю на Диску й повертає її ID. */
+    public function createFile(string $name, string $mimeType, ?string $parentId = null): string
     {
-        $value = trim((string) Setting::get('google_sheet_url', ''));
-
-        if ($value === '') {
-            return null;
-        }
-
-        if (preg_match('~/spreadsheets/d/([a-zA-Z0-9_-]+)~', $value, $matches)) {
-            return $matches[1];
-        }
-
-        // Вставили не посилання, а сам ID.
-        return preg_match('~^[a-zA-Z0-9_-]{20,}$~', $value) ? $value : null;
+        return (string) $this->request()
+            ->post(self::DRIVE_API.'?fields=id', array_filter([
+                'name' => $name,
+                'mimeType' => $mimeType,
+                'parents' => $parentId === null ? null : [$parentId],
+            ]))
+            ->throw()
+            ->json('id');
     }
 
-    /** @return array{client_email: string, private_key: string, token_uri?: string}|null */
-    public static function credentials(): ?array
+    /**
+     * Папка чи файл на Диску; null — видалено назавжди або в кошику.
+     *
+     * @return array{id: string, name: string}|null
+     */
+    public function findFile(string $fileId): ?array
     {
-        $path = config('services.google_sheets.credentials');
+        try {
+            $file = $this->request()
+                ->get(self::DRIVE_API.'/'.rawurlencode($fileId), ['fields' => 'id,name,trashed'])
+                ->throw()
+                ->json();
+        } catch (RequestException $e) {
+            if (in_array($e->response->status(), [403, 404], true)) {
+                return null;
+            }
 
-        if (blank($path)) {
-            return null;
+            throw $e;
         }
 
-        if (! str_starts_with($path, '/') && ! preg_match('~^[A-Za-z]:[\\\\/]~', $path)) {
-            $path = base_path($path);
-        }
-
-        if (! is_file($path)) {
-            return null;
-        }
-
-        $data = json_decode((string) file_get_contents($path), true);
-
-        return is_array($data) && isset($data['client_email'], $data['private_key']) ? $data : null;
+        return ($file['trashed'] ?? false) ? null : ['id' => (string) $file['id'], 'name' => (string) $file['name']];
     }
 
-    /** E-mail, якому треба надати доступ до таблиці як «Редактор». */
-    public static function serviceAccountEmail(): ?string
+    public function renameFile(string $fileId, string $name): void
     {
-        return static::credentials()['client_email'] ?? null;
+        $this->request()
+            ->patch(self::DRIVE_API.'/'.rawurlencode($fileId).'?fields=id', ['name' => $name])
+            ->throw();
     }
+
+    // ---------- Sheets ----------
 
     /**
      * Вкладки таблиці.
      *
      * @return array<int, array{sheetId: int, title: string, index: int}>
      */
-    public function sheets(): array
+    public function sheets(string $spreadsheetId): array
     {
         $response = $this->request()
-            ->get($this->url(), ['fields' => 'properties.title,sheets.properties(sheetId,title,index)'])
+            ->get($this->sheetsUrl($spreadsheetId), ['fields' => 'sheets.properties(sheetId,title,index)'])
             ->throw()
             ->json();
 
         return collect($response['sheets'] ?? [])
             ->map(fn (array $sheet): array => [
-                'sheetId' => (int) $sheet['properties']['sheetId'],
+                'sheetId' => (int) ($sheet['properties']['sheetId'] ?? 0),
                 'title' => (string) $sheet['properties']['title'],
                 'index' => (int) ($sheet['properties']['index'] ?? 0),
             ])
             ->all();
     }
 
-    /** Назва самої таблиці — для перевірки з'єднання. */
-    public function title(): string
-    {
-        return (string) $this->request()
-            ->get($this->url(), ['fields' => 'properties.title'])
-            ->throw()
-            ->json('properties.title');
-    }
-
     /**
      * @param  array<int, array<string, mixed>>  $requests
      * @return array<string, mixed>
      */
-    public function batchUpdate(array $requests): array
+    public function batchUpdate(string $spreadsheetId, array $requests): array
     {
         if ($requests === []) {
             return [];
         }
 
         return $this->request()
-            ->post($this->url(':batchUpdate'), ['requests' => $requests])
+            ->post($this->sheetsUrl($spreadsheetId, ':batchUpdate'), ['requests' => $requests])
             ->throw()
             ->json() ?? [];
     }
 
-    public function clearValues(string $sheetTitle): void
+    public function clearValues(string $spreadsheetId, string $sheetTitle): void
     {
         // Тіло обов'язково має бути об'єктом «{}»: порожній масив Laravel кодує як «[]»,
         // і Google відповідає 400 «Root element must be a message».
         $this->request()
             ->withBody('{}', 'application/json')
-            ->post($this->url('/values/'.$this->range($sheetTitle).':clear'))
+            ->post($this->sheetsUrl($spreadsheetId, '/values/'.$this->range($sheetTitle).':clear'))
             ->throw();
     }
 
     /** @param  array<int, array<int, mixed>>  $values */
-    public function updateValues(string $sheetTitle, array $values): void
+    public function updateValues(string $spreadsheetId, string $sheetTitle, array $values): void
     {
         $this->request()
-            ->put($this->url('/values/'.$this->range($sheetTitle).'?valueInputOption=RAW'), ['values' => $values])
+            ->put($this->sheetsUrl($spreadsheetId, '/values/'.$this->range($sheetTitle).'?valueInputOption=RAW'), ['values' => $values])
             ->throw();
     }
 
     /** @param  array<int, array<int, mixed>>  $values */
-    public function appendValues(string $sheetTitle, array $values): void
+    public function appendValues(string $spreadsheetId, string $sheetTitle, array $values): void
     {
         if ($values === []) {
             return;
@@ -146,87 +140,30 @@ class GoogleSheetsClient
 
         $this->request()
             ->post(
-                $this->url('/values/'.$this->range($sheetTitle).':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS'),
+                $this->sheetsUrl($spreadsheetId, '/values/'.$this->range($sheetTitle).':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS'),
                 ['values' => $values],
             )
             ->throw();
     }
 
-    private function request(): \Illuminate\Http\Client\PendingRequest
+    private function request(): PendingRequest
     {
-        return Http::withToken($this->accessToken())
+        return Http::withToken(GoogleAuth::accessToken())
             ->acceptJson()
             ->timeout(30)
-            ->retry(2, 1000, throw: false);
+            // Повторюємо лише збої мережі й сервера Google; 4xx — відповідь по суті.
+            ->retry(2, 1000, fn (\Throwable $e): bool => $e instanceof ConnectionException
+                || ($e instanceof RequestException && $e->response->serverError()), throw: false);
     }
 
-    private function url(string $suffix = ''): string
+    private function sheetsUrl(string $spreadsheetId, string $suffix = ''): string
     {
-        $id = static::spreadsheetId() ?? throw new RuntimeException('Google Таблицю не вказано в налаштуваннях.');
-
-        return self::API.'/'.$id.$suffix;
+        return self::SHEETS_API.'/'.rawurlencode($spreadsheetId).$suffix;
     }
 
     /** Діапазон «уся вкладка»: назва в лапках, апостроф подвоюється. */
     private function range(string $sheetTitle): string
     {
         return rawurlencode("'".str_replace("'", "''", $sheetTitle)."'");
-    }
-
-    private function accessToken(): string
-    {
-        $credentials = static::credentials() ?? throw new RuntimeException('Не знайдено ключ сервісного акаунта Google.');
-
-        return Cache::remember(
-            'google-sheets-token:'.md5($credentials['client_email']),
-            now()->addMinutes(50),
-            fn (): string => $this->fetchAccessToken($credentials),
-        );
-    }
-
-    /** @param  array{client_email: string, private_key: string, token_uri?: string}  $credentials */
-    private function fetchAccessToken(array $credentials): string
-    {
-        $tokenUri = $credentials['token_uri'] ?? self::DEFAULT_TOKEN_URI;
-        $now = time();
-
-        $segments = [
-            $this->base64Url(json_encode(['alg' => 'RS256', 'typ' => 'JWT'])),
-            $this->base64Url(json_encode([
-                'iss' => $credentials['client_email'],
-                'scope' => self::SCOPE,
-                'aud' => $tokenUri,
-                'iat' => $now,
-                'exp' => $now + 3600,
-            ])),
-        ];
-
-        $signature = '';
-
-        if (! openssl_sign(implode('.', $segments), $signature, $credentials['private_key'], OPENSSL_ALGO_SHA256)) {
-            throw new RuntimeException('Не вдалося підписати запит ключем сервісного акаунта Google.');
-        }
-
-        $segments[] = $this->base64Url($signature);
-
-        $token = Http::asForm()
-            ->timeout(30)
-            ->post($tokenUri, [
-                'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-                'assertion' => implode('.', $segments),
-            ])
-            ->throw()
-            ->json('access_token');
-
-        if (! is_string($token) || $token === '') {
-            throw new RuntimeException('Google не видав токен доступу.');
-        }
-
-        return $token;
-    }
-
-    private function base64Url(string $data): string
-    {
-        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
     }
 }

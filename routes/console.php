@@ -33,7 +33,7 @@ Schedule::command('school:send-cancellation-alerts')
     ->everyFifteenMinutes()
     ->withoutOverlapping();
 
-// Google Таблиця замовлень: з початком тижня його вкладки стають першими.
+// Google Диск: файл нового тижня кожного постачальника — ще до перших замовлень.
 Schedule::command('school:sync-google-sheet')
     ->weeklyOn(1, '00:10')
     ->withoutOverlapping();

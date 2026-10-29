@@ -96,6 +96,28 @@ class SupplierOrdersWeekServiceTest extends TestCase
         $this->assertSame('Комплекс', $report['rows']->sole()['cells'][self::FROM.'|Комплекс']);
     }
 
+    public function test_cancelled_lines_are_marked_only_on_request(): void
+    {
+        $student = $this->pupil('Іваненко Марія', 5, 'А');
+        $other = $this->pupil('Петренко Іван', 5, 'А');
+
+        // Марія скасувала борщ і замовила рибну юшку; Іван лише скасував.
+        $this->line($student, self::FROM, MenuSectionType::Choice, 'Перше', 'Борщ', 45, status: OrderLineStatus::Cancelled);
+        $this->line($student, self::FROM, MenuSectionType::Choice, 'Перше', 'Рибна юшка', 45);
+        $this->line($other, self::FROM, MenuSectionType::Choice, 'Перше', 'Борщ', 45, status: OrderLineStatus::Cancelled);
+
+        $this->assertCount(1, $this->service->build($this->supplier, self::FROM, self::TO)['rows']);
+
+        $rows = $this->service->build($this->supplier, self::FROM, self::TO, withCancelled: true)['rows']->keyBy('full_name');
+        $key = self::FROM.'|Перше';
+
+        $this->assertSame('Рибна юшка', $rows['Іваненко Марія']['cells'][$key]);
+        $this->assertArrayNotHasKey($key, $rows['Іваненко Марія']['cancelled']);
+
+        $this->assertSame('Борщ', $rows['Петренко Іван']['cells'][$key]);
+        $this->assertTrue($rows['Петренко Іван']['cancelled'][$key]);
+    }
+
     public function test_menu_columns_are_returned_when_nobody_ordered(): void
     {
         $this->menu(self::FROM);

@@ -11,20 +11,20 @@ use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 
 /**
- * Оновлює в Google Таблиці вкладки поточного тижня (і, з --next, наступного)
- * для постачальників, у яких на тиждень є меню чи замовлення, і ставить
- * вкладки поточного тижня першими. Щопонеділка — за розкладом.
+ * Створює чи оновлює на Google Диску файли поточного тижня (і, з --next,
+ * наступного) для постачальників, у яких на тиждень є меню чи замовлення.
+ * Щопонеділка — за розкладом, щоб файл тижня з'являвся ще до перших замовлень.
  */
 class SyncGoogleSheet extends Command
 {
     protected $signature = 'school:sync-google-sheet {--next : Також наступний тиждень}';
 
-    protected $description = 'Оновити в Google Таблиці вкладки замовлень поточного тижня';
+    protected $description = 'Створити чи оновити на Google Диску файли замовлень поточного тижня';
 
     public function handle(OrdersWorkbook $workbook): int
     {
         if (! GoogleSheetsClient::isConfigured()) {
-            $this->warn('Google Таблиця не налаштована — пропускаю.');
+            $this->warn('Google Диск не підключено — пропускаю.');
 
             return self::SUCCESS;
         }
@@ -44,10 +44,7 @@ class SyncGoogleSheet extends Command
             }
         }
 
-        // Навіть коли нового тижня ще немає, старі вкладки мають з'їхати вправо.
-        $workbook->reorderTabs();
-
-        $this->info("Оновлено вкладок: {$written}.");
+        $this->info("Оновлено файлів тижня: {$written}.");
 
         return self::SUCCESS;
     }

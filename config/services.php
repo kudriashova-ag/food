@@ -47,12 +47,13 @@ return [
     ],
 
     /*
-    | Google Таблиця замовлень. Ключ сервісного акаунта — JSON-файл на сервері
-    | (поза git); шлях відносний від кореня проєкту або абсолютний. Саму таблицю
-    | адміністратор вказує в «Налаштуваннях» адмінки.
+    | Google Диск для файлів замовлень: OAuth-клієнт (тип «Web application») із
+    | Google Cloud Console. Сам акаунт адміністратор підключає кнопкою в «Налаштуваннях»
+    | адмінки; дозволена адреса повернення — https://сайт/admin/google/callback.
     */
-    'google_sheets' => [
-        'credentials' => env('GOOGLE_SERVICE_ACCOUNT_JSON'),
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
     ],
 
 ];

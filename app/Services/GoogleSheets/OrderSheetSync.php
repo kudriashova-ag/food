@@ -10,10 +10,10 @@ use App\Models\User;
 use Illuminate\Support\Collection;
 
 /**
- * Передає зміни замовлень у Google Таблицю: рядки в «Журнал змін» і перебудову
- * вкладок зачеплених тижнів. Усе — фоновими завданнями після коміту, тож
- * оформлення не чекає Google, а збій Google не ламає сайт.
- * Поки таблиця не налаштована, нічого не відбувається.
+ * Передає зміни замовлень на Google Диск: рядки в «Журнал змін» і перебудову
+ * вкладки «Замовлення» у файлах зачеплених тижнів (файл на постачальника й тиждень).
+ * Усе — фоновими завданнями після коміту, тож оформлення не чекає Google,
+ * а збій Google не ламає сайт. Поки Диск не підключено, нічого не відбувається.
  */
 class OrderSheetSync
 {
@@ -31,9 +31,9 @@ class OrderSheetSync
 
         $order->loadMissing('lines.supplier', 'student.schoolClass');
 
-        static::journal($order->lines->map(fn (OrderLine $line): array => static::row(
+        static::journal($order->lines, fn (OrderLine $line): array => static::row(
             self::PLACED, $order, $line, $order->student?->full_name,
-        ))->all());
+        ));
 
         static::syncWeeks(static::weeksOf($order->lines));
     }
@@ -46,7 +46,10 @@ class OrderSheetSync
 
         $line->loadMissing('supplier', 'order.student.schoolClass');
 
-        static::journal([static::row(self::CANCELLED, $line->order, $line, $actor->name, $reason)]);
+        static::journal(collect([$line]), fn (OrderLine $line): array => static::row(
+            self::CANCELLED, $line->order, $line, $actor->name, $reason,
+        ));
+
         static::syncWeeks(static::weeksOf(collect([$line])));
     }
 
@@ -62,28 +65,30 @@ class OrderSheetSync
 
         $order->loadMissing('lines.supplier', 'student.schoolClass');
 
-        static::journal($order->lines->map(fn (OrderLine $line): array => static::row(
+        static::journal($order->lines, fn (OrderLine $line): array => static::row(
             self::DELETED, $order, $line, $actor?->name,
-        ))->all());
+        ));
 
         $weeks = static::weeksOf($order->lines);
 
         return static fn () => static::syncWeeks($weeks);
     }
 
-    /** Те саме для «Видалити всі замовлення»: у журнал — один підсумковий рядок. */
+    /** Те саме для «Видалити всі замовлення»: у журнал кожного тижня — один підсумковий рядок. */
     public static function deletingAll(int $count, ?User $actor): \Closure
     {
         if (! GoogleSheetsClient::isConfigured()) {
             return static fn () => null;
         }
 
-        static::journal([[
-            now()->format('d.m.Y H:i:s'), self::DELETED, 'Усі замовлення: '.$count,
-            '', '', '', '', '', '', '', '', $actor?->name ?? '', '',
-        ]]);
-
         $weeks = static::weeksOf(OrderLine::query()->get(['supplier_id', 'service_date']));
+
+        foreach ($weeks as [$supplierId, $monday]) {
+            AppendToGoogleSheetJournal::dispatch($supplierId, $monday, [[
+                now()->format('d.m.Y H:i:s'), self::DELETED, 'Усі замовлення на сайті: '.$count,
+                '', '', '', '', '', '', '', '', $actor?->name ?? '', '',
+            ]])->afterCommit();
+        }
 
         return static fn () => static::syncWeeks($weeks);
     }
@@ -97,12 +102,16 @@ class OrderSheetSync
     private static function weeksOf(Collection $lines): array
     {
         return $lines
-            ->mapWithKeys(function (OrderLine $line): array {
-                $monday = OrdersWorkbook::weekStart($line->service_date)->toDateString();
-
-                return ["{$line->supplier_id}:{$monday}" => [(int) $line->supplier_id, $monday]];
-            })
+            ->mapWithKeys(fn (OrderLine $line): array => [static::weekKey($line) => [
+                (int) $line->supplier_id,
+                OrdersWorkbook::weekStart($line->service_date)->toDateString(),
+            ]])
             ->all();
+    }
+
+    private static function weekKey(OrderLine $line): string
+    {
+        return $line->supplier_id.':'.OrdersWorkbook::weekStart($line->service_date)->toDateString();
     }
 
     /** @param  array<string, array{0: int, 1: string}>  $weeks */
@@ -113,11 +122,22 @@ class OrderSheetSync
         }
     }
 
-    /** @param  array<int, array<int, string|int|float|null>>  $rows */
-    private static function journal(array $rows): void
+    /**
+     * Рядки журналу — у файл свого тижня й постачальника.
+     *
+     * @param  Collection<int, OrderLine>  $lines
+     * @param  callable(OrderLine): array<int, string|int|float>  $row
+     */
+    private static function journal(Collection $lines, callable $row): void
     {
-        if ($rows !== []) {
-            AppendToGoogleSheetJournal::dispatch($rows)->afterCommit();
+        foreach ($lines->groupBy(fn (OrderLine $line): string => static::weekKey($line)) as $weekLines) {
+            $first = $weekLines->first();
+
+            AppendToGoogleSheetJournal::dispatch(
+                (int) $first->supplier_id,
+                OrdersWorkbook::weekStart($first->service_date)->toDateString(),
+                $weekLines->map($row)->values()->all(),
+            )->afterCommit();
         }
     }
 
