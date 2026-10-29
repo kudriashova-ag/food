@@ -10,8 +10,15 @@ use App\Filament\Resources\SchoolClasses\Pages\ListSchoolClasses;
 use App\Filament\Resources\Students\Pages\CreateStudent;
 use App\Filament\Resources\Students\Pages\EditStudent;
 use App\Filament\Resources\Students\Pages\ListStudents;
+use App\Filament\Pages\SchoolSettings;
 use App\Filament\Resources\Suppliers\Pages\CreateSupplier;
+use App\Filament\Resources\Suppliers\Pages\EditSupplier;
+use App\Filament\Resources\Suppliers\Pages\ListSuppliers;
 use App\Models\Dish;
+use App\Models\GoogleDriveItem;
+use App\Models\Setting;
+use App\Services\GoogleSheets\DriveLayout;
+use Illuminate\Support\Facades\Crypt;
 use App\Models\Order;
 use App\Models\OrderLine;
 use App\Models\SchoolClass;
@@ -64,6 +71,36 @@ class AdminPanelTest extends TestCase
 
         $this->assertSame(UserRole::Supplier, $account->role);
         $this->assertTrue(Hash::check('parol12345', $account->password));
+    }
+
+    public function test_supplier_drive_folder_link_appears_once_the_folder_exists(): void
+    {
+        $supplier = Supplier::create(['name' => 'Смачно', 'slug' => 'smachno']);
+
+        $this->assertNull(DriveLayout::supplierFolderUrl($supplier));
+
+        Livewire::test(ListSuppliers::class)->assertTableActionHidden('driveFolder', $supplier);
+
+        GoogleDriveItem::create(['key' => "supplier:{$supplier->id}", 'drive_id' => 'folder-123']);
+
+        $this->assertSame('https://drive.google.com/drive/folders/folder-123', DriveLayout::supplierFolderUrl($supplier));
+
+        Livewire::test(ListSuppliers::class)->assertTableActionVisible('driveFolder', $supplier);
+        Livewire::test(EditSupplier::class, ['record' => $supplier->getRouteKey()])->assertActionVisible('driveFolder');
+    }
+
+    public function test_settings_link_to_the_food_folder(): void
+    {
+        config(['services.google.client_id' => 'client-id', 'services.google.client_secret' => 'client-secret']);
+        Setting::put('google_refresh_token', Crypt::encryptString('refresh-1'));
+
+        Livewire::test(SchoolSettings::class)->assertDontSee('drive.google.com/drive/folders');
+
+        GoogleDriveItem::create(['key' => 'root', 'drive_id' => 'food-root']);
+
+        Livewire::test(SchoolSettings::class)
+            ->assertSee('Відкрити папку Food')
+            ->assertSee('https://drive.google.com/drive/folders/food-root');
     }
 
     public function test_admin_edits_supplier_payment_details(): void

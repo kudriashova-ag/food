@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Suppliers\Tables;
 
 use App\Models\Supplier;
+use App\Services\GoogleSheets\DriveLayout;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
@@ -54,9 +55,22 @@ class SuppliersTable
             ->recordActions([
                 EditAction::make(),
                 static::resetPasswordAction(),
+                static::driveFolderAction(),
             ])
             ->emptyStateHeading('Постачальників немає')
             ->emptyStateDescription('Додайте постачальника — учні побачать його на головній сторінці.');
+    }
+
+    /** Папка постачальника на Google Диску — з'являється, щойно сайт її створив. */
+    public static function driveFolderAction(): Action
+    {
+        return Action::make('driveFolder')
+            ->label('Папка на Диску')
+            ->icon('heroicon-o-folder')
+            ->color('gray')
+            ->visible(fn (Supplier $record): bool => DriveLayout::supplierFolderUrl($record) !== null)
+            ->url(fn (Supplier $record): ?string => DriveLayout::supplierFolderUrl($record))
+            ->openUrlInNewTab();
     }
 
     private static function resetPasswordAction(): Action

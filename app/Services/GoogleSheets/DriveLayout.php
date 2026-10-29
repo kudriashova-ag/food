@@ -25,6 +25,25 @@ class DriveLayout
         return "week:{$supplier->id}:".OrdersWorkbook::weekStart($monday)->toDateString();
     }
 
+    /** Посилання на папку Food; null — сайт її ще не створював. Без звернення до Google. */
+    public static function rootFolderUrl(): ?string
+    {
+        return static::folderUrl('root');
+    }
+
+    /** Посилання на папку постачальника; null — ще не створена. Без звернення до Google. */
+    public static function supplierFolderUrl(Supplier $supplier): ?string
+    {
+        return static::folderUrl("supplier:{$supplier->id}");
+    }
+
+    private static function folderUrl(string $key): ?string
+    {
+        $id = GoogleDriveItem::query()->where('key', $key)->value('drive_id');
+
+        return $id === null ? null : 'https://drive.google.com/drive/folders/'.rawurlencode($id);
+    }
+
     /** Чи сайт уже створював файл цього тижня (без звернення до Google). */
     public function hasWeekSpreadsheet(Supplier $supplier, CarbonInterface $monday): bool
     {

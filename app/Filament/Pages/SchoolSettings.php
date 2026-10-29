@@ -128,6 +128,13 @@ class SchoolSettings extends Page implements HasForms
                         Text::make(fn (): string => static::googleStatus()),
 
                         Actions::make([
+                            Action::make('openDriveFolder')
+                                ->label('Відкрити папку '.DriveLayout::ROOT_NAME)
+                                ->icon('heroicon-o-folder-open')
+                                ->visible(fn (): bool => GoogleAuth::isConnected() && DriveLayout::rootFolderUrl() !== null)
+                                ->url(fn (): ?string => DriveLayout::rootFolderUrl())
+                                ->openUrlInNewTab(),
+
                             Action::make('connectGoogle')
                                 ->label(fn (): string => GoogleAuth::isConnected() ? 'Підключити інший акаунт' : 'Підключити Google Диск')
                                 ->icon('heroicon-o-link')
@@ -196,7 +203,11 @@ class SchoolSettings extends Page implements HasForms
             return 'Google Диск не підключено. Натисніть «Підключити Google Диск» і увійдіть в акаунт, на Диску якого мають лежати файли.';
         }
 
-        return 'Підключено: '.(GoogleAuth::accountEmail() ?? 'акаунт Google').'. Сайт бачить лише файли, які створив сам.';
+        $status = 'Підключено: '.(GoogleAuth::accountEmail() ?? 'акаунт Google').'. Сайт бачить лише файли, які створив сам.';
+
+        return DriveLayout::rootFolderUrl() === null
+            ? $status.' Папка '.DriveLayout::ROOT_NAME.' з\'явиться з першим замовленням або після «Перевірити з\'єднання».'
+            : $status;
     }
 
     /** Повідомлення після повернення з Google (див. GoogleDriveController). */
