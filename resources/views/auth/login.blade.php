@@ -21,13 +21,14 @@
             <div>
                 <label for="login" class="mb-1.5 block text-sm font-medium">Логін користувача</label>
                 <input id="login" name="login" type="text" value="{{ old('login') }}" required autofocus
-                       autocomplete="username" autocapitalize="none" spellcheck="false"
+                       autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"
                        class="field">
             </div>
 
             <div>
                 <label for="password" class="mb-1.5 block text-sm font-medium">Пароль</label>
                 <input id="password" name="password" type="password" required autocomplete="current-password"
+                       autocapitalize="none" autocorrect="off" spellcheck="false"
                        class="field">
             </div>
 
