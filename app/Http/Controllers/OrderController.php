@@ -31,27 +31,6 @@ class OrderController extends Controller
             ->with('status', "Замовлення {$order->number} прийнято. Сума: ".number_format((float) $order->total_amount, 2, ',', ' ').' грн.');
     }
 
-    /** «Повторити минулий тиждень» — ТЗ, п. 9.2. */
-    public function repeatWeek(Request $request, CartService $cart): RedirectResponse
-    {
-        $source = CarbonImmutable::parse($request->input('source', 'last week'))->startOfWeek();
-        $target = $source->addWeek();
-
-        $result = $cart->repeatWeek($request->user()->student, $source, $target);
-
-        if ($result['added'] === 0 && $result['unavailable'] === []) {
-            return back()->with('error', 'За той тиждень немає активних замовлень.');
-        }
-
-        $message = "Перенесено позицій у кошик: {$result['added']}.";
-
-        if ($result['unavailable'] !== []) {
-            $message .= ' Недоступні: '.implode('; ', $result['unavailable']).'.';
-        }
-
-        return redirect()->route('cart')->with($result['unavailable'] === [] ? 'status' : 'error', $message);
-    }
-
     public function index(Request $request, DeadlineService $deadlines): View
     {
         $student = $request->user()->student;

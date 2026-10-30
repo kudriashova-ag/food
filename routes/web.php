@@ -59,7 +59,6 @@ Route::middleware('student')->group(function (): void {
     Route::middleware(['consent', 'password.changed'])->group(function (): void {
         Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
         Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
-        Route::post('/orders/repeat-week', [OrderController::class, 'repeatWeek'])->name('orders.repeat-week');
 
         Route::delete('/orders/lines/{line}', [CancellationController::class, 'cancelLine'])->name('orders.cancel-line');
         Route::delete('/orders/{supplier:slug}/{date}', [CancellationController::class, 'cancelDay'])->name('orders.cancel-day');

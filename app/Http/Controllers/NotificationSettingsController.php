@@ -18,6 +18,7 @@ class NotificationSettingsController extends Controller
         return view('notifications', [
             'student' => $student,
             'links' => $student->telegramLinks()->orderBy('linked_at')->get(),
+            'telegramEnabled' => (bool) config('school.student_telegram'),
             'telegramAvailable' => $client->isConfigured(),
         ]);
     }
@@ -54,6 +55,8 @@ class NotificationSettingsController extends Controller
     /** Кнопка «Підключити Telegram» — видає одноразове посилання на 15 хвилин. */
     public function connectTelegram(Request $request, TelegramLinkService $links): RedirectResponse
     {
+        abort_unless(config('school.student_telegram'), 404);
+
         $link = $links->deepLinkFor($request->user()->student);
 
         return back()->with('telegram_link', $link);

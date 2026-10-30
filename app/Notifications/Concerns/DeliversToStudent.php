@@ -19,7 +19,7 @@ trait DeliversToStudent
             $channels[] = 'mail';
         }
 
-        if ($notifiable->student?->telegramLinks()->where('is_active', true)->exists()) {
+        if (config('school.student_telegram') && $notifiable->student?->telegramLinks()->where('is_active', true)->exists()) {
             $channels[] = TelegramChannel::class;
         }
 

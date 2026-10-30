@@ -258,6 +258,7 @@ class StudentOrderingPagesTest extends TestCase
 
     public function test_hint_disappears_once_telegram_is_connected(): void
     {
+        config(['school.student_telegram' => true]);
         $this->user->update(['email' => 'mariia@example.com']);
 
         $this->student->telegramLinks()->create([
@@ -269,6 +270,16 @@ class StudentOrderingPagesTest extends TestCase
         $this->get(route('orders.index'))
             ->assertOk()
             ->assertDontSee('Налаштувати');
+    }
+
+    public function test_telegram_is_hidden_from_students_while_switched_off(): void
+    {
+        $this->student->telegramLinks()->create(['chat_id' => '100200', 'is_active' => true, 'linked_at' => now()]);
+
+        $this->get(route('settings'))->assertOk()->assertDontSee('Підключити Telegram');
+        $this->get(route('orders.index'))->assertSee('Налаштувати')->assertDontSee('Telegram');
+        $this->post(route('settings.telegram.connect'))->assertNotFound();
+        $this->assertFalse($this->student->isNotifiable());
     }
 
     public function test_order_line_keys_are_integers(): void

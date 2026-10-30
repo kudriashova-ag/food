@@ -19,7 +19,7 @@
             @csrf
 
             <div>
-                <label for="login" class="mb-1.5 block text-sm font-medium">Логін учня</label>
+                <label for="login" class="mb-1.5 block text-sm font-medium">Логін користувача</label>
                 <input id="login" name="login" type="text" value="{{ old('login') }}" required autofocus
                        autocomplete="username" autocapitalize="none" spellcheck="false"
                        class="field">

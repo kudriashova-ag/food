@@ -34,6 +34,9 @@ class TelegramTest extends TestCase
     {
         parent::setUp();
 
+        // Для учнів Telegram вимкнено налаштуванням — тут перевіряємо сам механізм.
+        config(['school.student_telegram' => true]);
+
         config([
             'services.telegram.bot_token' => 'test-token',
             'services.telegram.bot_username' => 'school_food_bot',

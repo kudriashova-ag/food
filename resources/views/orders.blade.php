@@ -30,18 +30,6 @@
         </a>
     </div>
 
-    <form method="POST" action="{{ route('orders.repeat-week') }}" class="mb-5">
-        @csrf
-        <input type="hidden" name="source" value="{{ $weekStart->toDateString() }}">
-        <button type="submit" class="btn-secondary w-full text-sm">
-            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>
-            </svg>
-            Повторити цей тиждень на {{ $weekStart->addWeek()->translatedFormat('d.m') }}–{{ $weekEnd->addWeek()->translatedFormat('d.m') }}
-        </button>
-    </form>
-
     @foreach ($days as $day)
         @php
             $hasOrders = $day['suppliers']->isNotEmpty();

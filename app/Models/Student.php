@@ -98,7 +98,7 @@ class Student extends Model
     public function isNotifiable(): bool
     {
         return filled($this->user?->email)
-            || $this->telegramLinks()->where('is_active', true)->exists();
+            || (config('school.student_telegram') && $this->telegramLinks()->where('is_active', true)->exists());
     }
 
     /** Дії адміністратора з акаунтами фіксуються в журналі (ТЗ, п. 13). */

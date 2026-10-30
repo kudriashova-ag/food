@@ -38,6 +38,7 @@
         @enderror
     </section>
 
+    @if ($telegramEnabled)
     <section class="card mb-4 p-5">
         <h2 class="font-semibold">Telegram</h2>
         <p class="mb-3 mt-1 text-sm text-ink-500">
@@ -81,6 +82,7 @@
             </p>
         @endif
     </section>
+    @endif
 
     <section class="card p-5">
         <h2 class="mb-4 font-semibold">Зміна пароля</h2>

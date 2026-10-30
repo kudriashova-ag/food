@@ -3,8 +3,9 @@
     $student = $user?->student;
 
     // Показуємо тільки учневі й лише поки Telegram не підключений:
-    // коли підключений, налаштовувати вже нічого.
-    $telegramConnected = $student?->telegramLinks()->where('is_active', true)->exists() ?? false;
+    // коли підключений, налаштовувати вже нічого. Telegram для учнів може бути вимкнений.
+    $telegramEnabled = (bool) config('school.student_telegram');
+    $telegramConnected = $telegramEnabled && ($student?->telegramLinks()->where('is_active', true)->exists() ?? false);
     $email = $user?->email;
 @endphp
 
@@ -23,12 +24,20 @@
                         <span class="font-semibold text-deep-800">{{ $email }}</span>.
                     </div>
                     <p class="mt-0.5 text-ink-500">
-                        Адресу можна змінити, а ще — підключити Telegram, щоб отримувати їх швидше.
+                        @if ($telegramEnabled)
+                            Адресу можна змінити, а ще — підключити Telegram, щоб отримувати їх швидше.
+                        @else
+                            Адресу можна змінити в налаштуваннях.
+                        @endif
                     </p>
                 @else
                     <div class="font-semibold text-deep-800">Сповіщення нікуди не надходять</div>
                     <p class="mt-0.5 text-ink-500">
-                        Вкажіть e-mail або підключіть Telegram — інакше підтвердження замовлення ви не отримаєте.
+                        @if ($telegramEnabled)
+                            Вкажіть e-mail або підключіть Telegram — інакше підтвердження замовлення ви не отримаєте.
+                        @else
+                            Вкажіть e-mail — інакше підтвердження замовлення ви не отримаєте.
+                        @endif
                     </p>
                 @endif
             </div>

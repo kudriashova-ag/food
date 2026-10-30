@@ -52,28 +52,11 @@ class OrderPlaced extends Notification implements ShouldQueue
             }
         }
 
-        $message
-            ->line('')
-            ->line('**Сума: '.number_format((float) $order->total_amount, 2, ',', ' ').' грн**');
-
-        foreach ($this->paymentGroups($order) as $group) {
-            $message->line('');
-            $message->line(sprintf(
-                '**Сума для оплати %s: %s грн**',
-                $group['supplier']->name,
-                number_format($group['total'], 2, ',', ' '),
-            ));
-
-            if (filled($group['supplier']->payment_details)) {
-                $message->line($group['supplier']->payment_details);
-            }
-
-            $message->line("Призначення платежу: {$group['purpose']}");
-        }
-
+        // Реквізити й суми для оплати в листі не надсилаємо: їх передають
+        // куратори в чат класу чи особисто — у кінці лише загальна сума.
         return $message
             ->line('')
-            ->line('Оплата відбувається поза сайтом.')
+            ->line('**Сума замовлення: '.number_format((float) $order->total_amount, 2, ',', ' ').' грн**')
             ->salutation(Setting::get('notification_signature', 'Шкільна їдальня'));
     }
 

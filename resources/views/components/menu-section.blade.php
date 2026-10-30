@@ -21,8 +21,8 @@
                     <div class="flex flex-col items-center gap-1.5 text-center">
                         <x-dish-thumb :dish="$sectionDish->dish" size="grid" />
 
-                        <div class="min-w-0 leading-tight">
-                            <div class="truncate text-xs font-medium text-ink-700">{{ $sectionDish->dish->name }}</div>
+                        <div class="w-full min-w-0 leading-tight">
+                            <div class="break-words text-xs font-medium text-ink-700">{{ $sectionDish->dish->name }}</div>
 
                             @if ($sectionDish->dish->portion)
                                 <div class="text-xs text-ink-400">{{ $sectionDish->dish->portion }}</div>
