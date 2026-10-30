@@ -89,6 +89,17 @@ class AdminPanelTest extends TestCase
         Livewire::test(EditSupplier::class, ['record' => $supplier->getRouteKey()])->assertActionVisible('driveFolder');
     }
 
+    public function test_login_journal_shows_failed_attempts_with_the_password(): void
+    {
+        \App\Models\LoginAttempt::create(['login' => 'ivanenko.mariia', 'password' => 'secret 1', 'successful' => false, 'user_agent' => 'Mozilla/5.0 (iPhone)']);
+
+        $this->get(\App\Filament\Resources\LoginAttempts\LoginAttemptResource::getUrl())
+            ->assertOk()
+            ->assertSee('ivanenko.mariia')
+            ->assertSee('secret␣1 (8)')
+            ->assertSee('iPhone');
+    }
+
     public function test_orders_page_links_to_the_food_folder(): void
     {
         Livewire::test(ListOrders::class)->assertActionHidden('driveFolder');

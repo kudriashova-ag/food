@@ -3,11 +3,14 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Filament\Resources\LoginAttempts\LoginAttemptResource;
+use App\Models\LoginAttempt;
 use App\Models\SchoolClass;
 use App\Models\Student;
 use App\Models\Supplier;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class StudentAccessTest extends TestCase
@@ -57,6 +60,45 @@ class StudentAccessTest extends TestCase
         ])->assertSessionHasErrors('login');
 
         $this->assertGuest();
+    }
+
+    public function test_failed_login_is_logged_with_the_entered_password(): void
+    {
+        $this->withHeaders(['User-Agent' => 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)'])
+            ->post('/login', ['login' => 'Ivanenko.mariia', 'password' => 'secret '])
+            ->assertSessionHasErrors('login');
+
+        $attempt = LoginAttempt::query()->sole();
+
+        $this->assertFalse($attempt->successful);
+        $this->assertSame('Ivanenko.mariia', $attempt->login);
+        // Пароль — як ввели, з пробілом у кінці, і в базі зашифрований.
+        $this->assertSame('secret ', $attempt->password);
+        $this->assertStringNotContainsString('secret', DB::table('login_attempts')->value('password'));
+        $this->assertSame('iPhone', $attempt->device());
+        $this->assertSame('secret␣ (7)', LoginAttemptResource::visible($attempt->password));
+    }
+
+    public function test_successful_login_is_logged_without_the_password(): void
+    {
+        $this->post('/login', ['login' => 'ivanenko.mariia', 'password' => 'secret']);
+
+        $attempt = LoginAttempt::query()->sole();
+
+        $this->assertTrue($attempt->successful);
+        $this->assertNull($attempt->password);
+        $this->assertSame($this->user->id, $attempt->user_id);
+    }
+
+    public function test_old_login_attempts_are_pruned(): void
+    {
+        LoginAttempt::create(['login' => 'old', 'successful' => false]);
+        $this->travel(LoginAttempt::PRUNE_DAYS + 1)->days();
+        LoginAttempt::create(['login' => 'new', 'successful' => false]);
+
+        $this->artisan('model:prune', ['--model' => [LoginAttempt::class]]);
+
+        $this->assertSame(['new'], LoginAttempt::query()->pluck('login')->all());
     }
 
     public function test_deactivated_student_cannot_log_in(): void

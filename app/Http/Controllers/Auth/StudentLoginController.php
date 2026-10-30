@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
+use App\Models\LoginAttempt;
 use App\Services\Orders\CartService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,6 +49,8 @@ class StudentLoginController extends Controller
             'is_active' => true,
         ], $request->boolean('remember'));
 
+        $this->logAttempt($request, $credentials, $attempted);
+
         if (! $attempted) {
             RateLimiter::hit($this->throttleKey($request), self::DECAY_SECONDS);
 
@@ -77,6 +80,24 @@ class StudentLoginController extends Controller
         }
 
         return redirect()->intended($moved > 0 ? route('cart') : '/');
+    }
+
+    /**
+     * Журнал входів: пароль — лише коли вхід не вдався (і зашифрованим).
+     * Пароль беремо з запиту як є, без обрізання пробілів, — щоб бачити, що саме надіслав телефон.
+     *
+     * @param  array{login: string, password: string}  $credentials
+     */
+    private function logAttempt(Request $request, array $credentials, bool $successful): void
+    {
+        LoginAttempt::create([
+            'login' => Str::limit((string) $request->input('login', $credentials['login']), 250, ''),
+            'password' => $successful ? null : (string) $request->input('password'),
+            'successful' => $successful,
+            'user_id' => $successful ? Auth::id() : null,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
     }
 
     private function assertNotRateLimited(Request $request): void
