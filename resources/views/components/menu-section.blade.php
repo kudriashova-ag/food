@@ -3,6 +3,8 @@
 @php
     $type = $section->type;
     $isChoice = $type === \App\Enums\MenuSectionType::Choice;
+    // Комплекс без жодного фото показуємо списком рядків, а не сіткою з картинками.
+    $complexHasPhotos = $section->sectionDishes->contains(fn ($sectionDish): bool => $sectionDish->dish?->primaryPhoto !== null);
 @endphp
 
 <div>
@@ -12,7 +14,31 @@
         </div>
     @endif
 
-    @if ($type === \App\Enums\MenuSectionType::Complex)
+    @if ($type === \App\Enums\MenuSectionType::Complex && ! $complexHasPhotos)
+        {{-- Комплекс без фото: страви рядками, внизу — «Замовити» з ціною (одна порція). --}}
+        <div class="space-y-2">
+            @foreach ($section->sectionDishes as $sectionDish)
+                <div class="rounded-xl border border-ink-200 bg-white p-3">
+                    <div class="break-words leading-snug">{{ $sectionDish->dish->name }}</div>
+
+                    @if ($sectionDish->dish->portion)
+                        <div class="mt-0.5 text-sm text-ink-400">{{ $sectionDish->dish->portion }}</div>
+                    @endif
+                </div>
+            @endforeach
+
+            <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-ink-200 bg-white p-3 transition
+                          has-[:checked]:border-deep-500 has-[:checked]:bg-brand-50/50 hover:border-ink-300">
+                <input type="checkbox" name="complex_qty[{{ $section->id }}]" value="1" checked
+                       data-price="{{ $section->price }}" data-complex="{{ $section->id }}"
+                       class="h-5 w-5 shrink-0 accent-deep-700">
+                <span class="flex-1 font-semibold">Замовити</span>
+                <span class="shrink-0 text-sm text-ink-500 tabular-nums">
+                    {{ number_format((float) $section->price, 2, ',', ' ') }} грн
+                </span>
+            </label>
+        </div>
+    @elseif ($type === \App\Enums\MenuSectionType::Complex)
         {{-- Комплекс: фото, назва й вага кожної страви в сітці по 2 в ряд,
              вибору немає — лише галочка «замовити» (одна порція). --}}
         <div class="rounded-xl border border-ink-200 bg-white p-4">
