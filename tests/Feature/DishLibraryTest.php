@@ -86,6 +86,16 @@ class DishLibraryTest extends TestCase
         $this->assertFalse($dish->is_archived);
     }
 
+    public function test_dish_can_be_created_without_photos(): void
+    {
+        Livewire::test(CreateDish::class)
+            ->fillForm(['name' => 'Компот', 'price' => 20, 'photos' => []])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $this->assertCount(0, Dish::query()->where('name', 'Компот')->firstOrFail()->photos);
+    }
+
     public function test_first_photo_becomes_the_primary_one(): void
     {
         Storage::fake('public');
@@ -107,19 +117,6 @@ class DishLibraryTest extends TestCase
         $this->assertCount(2, $dish->photos);
         $this->assertTrue($dish->photos()->orderBy('sort')->first()->is_primary);
         $this->assertSame(1, $dish->photos()->where('is_primary', true)->count());
-    }
-
-    public function test_dish_requires_a_photo(): void
-    {
-        Storage::fake('public');
-
-        Livewire::test(CreateDish::class)
-            ->fillForm([
-                'name' => 'Без фото',
-                'price' => 10,
-            ])
-            ->call('create')
-            ->assertHasFormErrors(['photos']);
     }
 
     public function test_unused_dish_is_deleted_by_the_bulk_action(): void

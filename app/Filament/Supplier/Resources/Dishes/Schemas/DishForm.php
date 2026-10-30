@@ -50,7 +50,7 @@ class DishForm
                     ]),
 
                 Section::make('Фотографії')
-                    ->description('Перше фото — основне, воно показується учням у списку. Порядок можна змінювати перетягуванням.')
+                    ->description("Необов'язково. Перше фото — основне, воно показується учням у списку. Порядок можна змінювати перетягуванням. Без фото страва показується в меню просто назвою.")
                     ->schema([
                         FileUpload::make('photos')
                             ->label('Фотографії')
@@ -58,14 +58,12 @@ class DishForm
                             ->multiple()
                             ->reorderable()
                             ->appendFiles()
-                            ->required()
-                            ->minFiles(1)
                             ->maxFiles(5)
                             ->maxSize(10240)
                             ->disk('public')
                             ->directory('dishes')
                             ->imageEditor()
-                            ->helperText('До 5 фото, кожне до 10 МБ.'),
+                            ->helperText('До 5 фото, кожне до 10 МБ. Можна не додавати жодного.'),
                     ]),
 
                 Section::make('Додатково')
