@@ -2,6 +2,7 @@
 
 namespace App\Filament\Supplier\Pages;
 
+use App\Filament\Actions\ChangePasswordAction;
 use App\Models\Supplier;
 use App\Models\TelegramLink;
 use App\Services\Telegram\TelegramClient;
@@ -153,6 +154,7 @@ class NotificationSettings extends Page implements HasForms
                         ->success()
                         ->send();
                 }),
+            ChangePasswordAction::make(),
         ];
     }
 

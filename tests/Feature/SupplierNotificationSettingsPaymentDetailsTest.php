@@ -8,6 +8,7 @@ use App\Models\Supplier;
 use App\Models\User;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -53,6 +54,19 @@ class SupplierNotificationSettingsPaymentDetailsTest extends TestCase
             "ФОП Смачненко\nIBAN UA111111111111111111111111111",
             $this->supplier->fresh()->payment_details,
         );
+    }
+
+    public function test_supplier_changes_own_password(): void
+    {
+        Livewire::test(NotificationSettings::class)
+            ->callAction('changePassword', data: [
+                'current_password' => 'secret',
+                'password' => 'new-secret',
+                'password_confirmation' => 'new-secret',
+            ])
+            ->assertHasNoActionErrors();
+
+        $this->assertTrue(Hash::check('new-secret', auth()->user()->fresh()->password));
     }
 
     public function test_blank_payment_details_are_saved_as_null(): void

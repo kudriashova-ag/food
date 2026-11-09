@@ -89,6 +89,36 @@ class AdminPanelTest extends TestCase
         Livewire::test(EditSupplier::class, ['record' => $supplier->getRouteKey()])->assertActionVisible('driveFolder');
     }
 
+    public function test_admin_changes_own_password_and_stays_logged_in(): void
+    {
+        Livewire::test(SchoolSettings::class)
+            ->callAction('changePassword', data: [
+                'current_password' => 'secret',
+                'password' => 'new-secret',
+                'password_confirmation' => 'new-secret',
+            ])
+            ->assertHasNoActionErrors();
+
+        $fresh = $this->admin->fresh();
+
+        $this->assertTrue(Hash::check('new-secret', $fresh->password));
+        // Інакше AuthenticateSession завершив би сесію на наступному запиті.
+        $this->assertSame($fresh->getAuthPassword(), session('password_hash_web'));
+    }
+
+    public function test_password_change_requires_the_current_password_and_a_match(): void
+    {
+        Livewire::test(SchoolSettings::class)
+            ->callAction('changePassword', data: [
+                'current_password' => 'wrong',
+                'password' => 'new-secret',
+                'password_confirmation' => 'other-secret',
+            ])
+            ->assertHasActionErrors(['current_password', 'password']);
+
+        $this->assertTrue(Hash::check('secret', $this->admin->fresh()->password));
+    }
+
     public function test_login_journal_shows_failed_attempts_with_the_password(): void
     {
         \App\Models\LoginAttempt::create(['login' => 'ivanenko.mariia', 'password' => 'secret 1', 'successful' => false, 'user_agent' => 'Mozilla/5.0 (iPhone)']);

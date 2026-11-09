@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Actions\ChangePasswordAction;
 use App\Models\Setting;
 use App\Services\GoogleSheets\DriveLayout;
 use App\Services\GoogleSheets\GoogleAuth;
@@ -180,6 +181,13 @@ class SchoolSettings extends Page implements HasForms
                     ]),
             ])
             ->statePath('data');
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            ChangePasswordAction::make(),
+        ];
     }
 
     public function save(): void
