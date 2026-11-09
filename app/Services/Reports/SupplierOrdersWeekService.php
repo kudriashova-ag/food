@@ -240,7 +240,7 @@ class SupplierOrdersWeekService
     /**
      * Хто це: ПІБ, клас і місце в порядку Google Таблиці.
      *
-     * @return array{student_id: int, full_name: string, class: string, class_order: array<int, int|string>, exempt: bool}
+     * @return array{student_id: int, full_name: string, class: string, class_order: array<int, int|string>, position: string|null, exempt: bool}
      */
     public function studentColumns(\App\Models\Student $student): array
     {
@@ -250,6 +250,7 @@ class SupplierOrdersWeekService
             // Вчитель класу не має — за домовленістю пишемо «Вчитель».
             'class' => $student->school_class_id === null ? 'Вчитель' : ($student->schoolClass?->title ?? ''),
             'class_order' => $this->classOrder($student),
+            'position' => $student->position?->label(),
             // Директор і куратори не платять: у грошових підсумках їх немає.
             'exempt' => $student->position !== null,
         ];

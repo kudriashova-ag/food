@@ -110,7 +110,9 @@ class OrdersWorkbook
         $userColors = $this->userColors($this->client->gridColors($spreadsheetId, self::ORDERS_TITLE));
 
         $empty = $report['columns']->isEmpty();
-        $rows = $this->sheetOrder($report['rows']);
+        // У Google Таблиці в колонці «Клас» директор і куратори підписані посадою.
+        $rows = $this->sheetOrder($report['rows'])
+            ->map(fn (array $row): array => [...$row, 'class' => $row['position'] ?? $row['class']]);
         $values = $empty
             ? [['На цей тиждень немає ні меню, ні замовлень.']]
             : $this->sheetValues($report['columns'], $rows);

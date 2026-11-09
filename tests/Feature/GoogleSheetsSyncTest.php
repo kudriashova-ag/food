@@ -378,6 +378,24 @@ class GoogleSheetsSyncTest extends TestCase
         ], $this->sheetValues(OrdersWorkbook::KITCHEN_TITLE));
     }
 
+    public function test_orders_tab_shows_the_position_in_the_class_column(): void
+    {
+        $this->connect();
+        $this->fakeGoogle();
+
+        $this->pupilOrder('Бондар Петро', null, null);
+        $this->givePosition('Бондар Петро', TeacherPosition::Director);
+        $this->pupilOrder('Коваленко Ольга', null, null);
+        $this->givePosition('Коваленко Ольга', TeacherPosition::Curator);
+        $this->pupilOrder('Шевченко Ірина', null, null);
+
+        app(OrdersWorkbook::class)->writeWeek($this->supplier, CarbonImmutable::parse(self::SERVICE_DATE));
+
+        $values = $this->sheetValues(OrdersWorkbook::ORDERS_TITLE);
+
+        $this->assertSame(['Директор', 'Куратор', 'Вчитель'], array_column(array_slice($values, 3), 3));
+    }
+
     public function test_director_and_curators_are_not_on_the_payment_tab(): void
     {
         $this->connect();
