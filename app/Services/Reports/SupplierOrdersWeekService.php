@@ -25,6 +25,12 @@ use Illuminate\Support\Collection;
  */
 class SupplierOrdersWeekService
 {
+    public const KITCHEN_FIRST = 'Перше';
+
+    public const KITCHEN_COMPLEX = 'Комплекс';
+
+    public const KITCHEN_DRINK = 'Напій';
+
     /**
      * @return array{
      *     columns: Collection<int, array{key: string, date: CarbonImmutable, section_title: string, section_type: MenuSectionType|null, price: float|null, is_complex: bool, complex_dishes: string|null}>,
@@ -57,6 +63,44 @@ class SupplierOrdersWeekService
             'columns' => $this->columns($lines, $menuDays),
             'rows' => $this->rows($lines),
         ];
+    }
+
+    /**
+     * Підсумок тижня для кухні (пн–пт): порції рахуються всі — кухня готує
+     * і для директора з кураторами, а гроші — лише за тих, хто платить.
+     *
+     * @return array<string, array<string, array{quantity: int, amount: float}>>  [рядок => [дата => підсумок]]
+     */
+    public function kitchen(Supplier $supplier, CarbonInterface $monday): array
+    {
+        $start = CarbonImmutable::parse($monday)->startOfDay();
+
+        $days = collect(range(0, 4))
+            ->mapWithKeys(fn (int $day): array => [$start->addDays($day)->toDateString() => ['quantity' => 0, 'amount' => 0.0]])
+            ->all();
+
+        $summary = array_fill_keys([self::KITCHEN_FIRST, self::KITCHEN_COMPLEX, self::KITCHEN_DRINK], $days);
+
+        $lines = OrderLine::query()
+            ->where('supplier_id', $supplier->id)
+            ->whereDate('service_date', '>=', $start->toDateString())
+            ->whereDate('service_date', '<=', $start->addDays(4)->toDateString())
+            ->active()
+            ->with('student')
+            ->get();
+
+        foreach ($lines as $line) {
+            $row = $this->kitchenRow($line->section_type, $this->sectionKey($line));
+            $date = $line->service_date->toDateString();
+
+            $summary[$row][$date]['quantity'] += (int) $line->quantity;
+
+            if ($line->student?->position === null) {
+                $summary[$row][$date]['amount'] = round($summary[$row][$date]['amount'] + (float) $line->quantity * (float) $line->unit_price, 2);
+            }
+        }
+
+        return $summary;
     }
 
     /**
@@ -196,7 +240,7 @@ class SupplierOrdersWeekService
     /**
      * Хто це: ПІБ, клас і місце в порядку Google Таблиці.
      *
-     * @return array{student_id: int, full_name: string, class: string, class_order: array<int, int|string>}
+     * @return array{student_id: int, full_name: string, class: string, class_order: array<int, int|string>, exempt: bool}
      */
     public function studentColumns(\App\Models\Student $student): array
     {
@@ -206,6 +250,8 @@ class SupplierOrdersWeekService
             // Вчитель класу не має — за домовленістю пишемо «Вчитель».
             'class' => $student->school_class_id === null ? 'Вчитель' : ($student->schoolClass?->title ?? ''),
             'class_order' => $this->classOrder($student),
+            // Директор і куратори не платять: у грошових підсумках їх немає.
+            'exempt' => $student->position !== null,
         ];
     }
 
@@ -230,6 +276,29 @@ class SupplierOrdersWeekService
         return [0, (int) $class->grade, mb_strtoupper((string) $class->letter)];
     }
 
+    private function isFirstCourse(string $title): bool
+    {
+        return str_starts_with(mb_strtolower(trim($title)), 'перш');
+    }
+
+    private function isDrink(string $title): bool
+    {
+        $title = mb_strtolower(trim($title));
+
+        return str_starts_with($title, 'напі') || str_starts_with($title, 'напо');
+    }
+
+    /** Рядок листа «Для кухні», куди йде позиція: завжди один із трьох. */
+    private function kitchenRow(?MenuSectionType $type, string $title): string
+    {
+        return match (true) {
+            $this->isFirstCourse($title) => self::KITCHEN_FIRST,
+            $type === MenuSectionType::Complex => self::KITCHEN_COMPLEX,
+            $this->isDrink($title) || $type === MenuSectionType::Extra => self::KITCHEN_DRINK,
+            default => self::KITCHEN_FIRST,
+        };
+    }
+
     /** Секції з однаковою назвою в один день — одна колонка. */
     private function sectionKey(OrderLine $line): string
     {
@@ -243,12 +312,10 @@ class SupplierOrdersWeekService
      */
     private function sectionOrder(?MenuSectionType $type, string $title): int
     {
-        $title = mb_strtolower(trim($title));
-
         return match (true) {
-            str_starts_with($title, 'перш') => 0,
+            $this->isFirstCourse($title) => 0,
             $type === MenuSectionType::Complex => 1,
-            str_starts_with($title, 'напі') || str_starts_with($title, 'напо') => 4,
+            $this->isDrink($title) => 4,
             $type === MenuSectionType::Choice => 2,
             $type === MenuSectionType::Extra => 3,
             default => 3,

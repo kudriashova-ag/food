@@ -4,11 +4,13 @@ namespace Tests\Feature;
 
 use App\Enums\MenuSectionType;
 use App\Enums\OrderLineStatus;
+use App\Enums\TeacherPosition;
 use App\Enums\UserRole;
 use App\Jobs\AppendToGoogleSheetJournal;
 use App\Jobs\SyncWeekToGoogleSheet;
 use App\Models\GoogleDriveItem;
 use App\Models\Order;
+use App\Models\OrderLine;
 use App\Models\SchoolClass;
 use App\Models\Setting;
 use App\Models\Student;
@@ -340,6 +342,71 @@ class GoogleSheetsSyncTest extends TestCase
         $this->assertSame([[3, 5, $green]], $colored);
     }
 
+    public function test_kitchen_tab_counts_portions_by_section_and_day(): void
+    {
+        $this->connect();
+        $this->fakeGoogle();
+
+        $order = $this->order();   // Борщ 45 на вівторок 08.09
+        $line = ['student_id' => $this->student->id, 'supplier_id' => $this->supplier->id, 'quantity' => 1];
+
+        $order->lines()->create([...$line, 'service_date' => self::SERVICE_DATE, 'dish_name' => 'Комплекс №1: Салат', 'section_type' => MenuSectionType::Complex, 'section_title' => 'Комплекс №1', 'unit_price' => 230]);
+        // Напій, заведений групою вибору, усе одно йде в рядок «Напій».
+        $order->lines()->create([...$line, 'service_date' => '2026-09-09', 'dish_name' => 'Компот', 'section_type' => MenuSectionType::Choice, 'section_title' => 'Напій', 'unit_price' => 20]);
+        // Скасоване кухня не готує.
+        $order->lines()->create([...$line, 'service_date' => self::SERVICE_DATE, 'dish_name' => 'Сік', 'section_type' => MenuSectionType::Extra, 'section_title' => 'Напій', 'unit_price' => 30, 'status' => OrderLineStatus::Cancelled]);
+
+        // Порцію куратора кухня готує, але грошей вона не додає.
+        $this->pupilOrder('Коваленко Ольга', null, null);
+        $this->givePosition('Коваленко Ольга', TeacherPosition::Curator);
+
+        app(OrdersWorkbook::class)->writeWeek($this->supplier, CarbonImmutable::parse(self::SERVICE_DATE));
+
+        Http::assertSent(fn (Request $request): bool => data_get($request->data(), 'requests.0.addSheet.properties.title') === 'Для кухні'
+            && data_get($request->data(), 'requests.0.addSheet.properties.index') === 2);
+
+        $this->assertSame([
+            ['', 'пн', 'вів', 'середа', 'четвер', "п'ятниця", '', 'Сума'],
+            ['Перше', 0, 2, 0, 0, 0, '', 45],
+            ['Комплекс', 0, 1, 0, 0, 0, '', 230],
+            ['Напій', 0, 0, 1, 0, 0, '', 20],
+            [],
+            ['Сума', 0, 275, 20, 0, 0],
+            [],
+            [],
+            ['Загальна сума', 295],
+        ], $this->sheetValues(OrdersWorkbook::KITCHEN_TITLE));
+    }
+
+    public function test_director_and_curators_are_not_on_the_payment_tab(): void
+    {
+        $this->connect();
+        $this->fakeGoogle();
+
+        $this->order();   // Іваненко Марія
+        $this->pupilOrder('Шевченко Ірина', null, null);   // звичайна вчителька лишається
+        $this->pupilOrder('Коваленко Ольга', null, null);
+        $this->givePosition('Коваленко Ольга', TeacherPosition::Curator);
+
+        // Директор без замовлень, але з боргом на листі: на лист не повертається.
+        $this->pupilOrder('Бондар Петро', null, null);
+        $director = $this->givePosition('Бондар Петро', TeacherPosition::Director);
+        OrderLine::query()->where('student_id', $director->id)->delete();
+
+        $this->paymentGrid = [
+            ['values' => $this->cells(['', '_num', '_name', '_class', 'day:'.self::SERVICE_DATE, '_total', '_debt'])],
+            ['values' => []],
+            ['values' => [
+                ['formattedValue' => 's'.$director->id], [], [], [], [], [],
+                ['formattedValue' => '120', 'userEnteredValue' => ['numberValue' => 120]],
+            ]],
+        ];
+
+        app(OrdersWorkbook::class)->writeWeek($this->supplier, CarbonImmutable::parse(self::SERVICE_DATE));
+
+        $this->assertSame(['Іваненко Марія', 'Шевченко Ірина'], array_column(array_slice($this->paymentValues(), 2), 2));
+    }
+
     public function test_existing_files_are_reused_and_deleted_ones_recreated(): void
     {
         $this->connect();
@@ -489,16 +556,29 @@ class GoogleSheetsSyncTest extends TestCase
         });
     }
 
-    /** Значення, записані у вкладку «Оплата» (останній запис). */
-    private function paymentValues(): array
+    /** Значення, записані у вкладку (останній запис). */
+    private function sheetValues(string $title): array
     {
         $put = collect(Http::recorded())
             ->map(fn (array $pair): Request => $pair[0])
-            ->last(fn (Request $request): bool => $request->method() === 'PUT' && str_contains(urldecode($request->url()), "'Оплата'"));
+            ->last(fn (Request $request): bool => $request->method() === 'PUT' && str_contains(urldecode($request->url()), "'{$title}'"));
 
-        $this->assertNotNull($put, 'Вкладку «Оплата» не записано');
+        $this->assertNotNull($put, "Вкладку «{$title}» не записано");
 
         return data_get($put->data(), 'values');
+    }
+
+    private function paymentValues(): array
+    {
+        return $this->sheetValues(OrdersWorkbook::PAYMENT_TITLE);
+    }
+
+    private function givePosition(string $fullName, TeacherPosition $position): Student
+    {
+        $student = Student::query()->where('full_name', $fullName)->firstOrFail();
+        $student->update(['position' => $position]);
+
+        return $student;
     }
 
     /** @return array<int, array{formattedValue: string}> */

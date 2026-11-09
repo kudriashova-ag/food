@@ -15,6 +15,7 @@ use Illuminate\Support\Collection;
  *   «Замовлення»  — той самий звіт, що «Замовлення за тиждень» в Excel,
  *                   скасовані страви лишаються в клітинках на червоному тлі;
  *   «Оплата»      — до сплати за днями й за тиждень, «Борг» заповнюють люди;
+ *   «Для кухні»   — порції за секціями по днях і суми;
  *   «Журнал змін» — рядок на кожне замовлення, скасування, видалення.
  *
  * «Замовлення» переписується цілком, але фон клітинок, який людина задала
@@ -27,6 +28,10 @@ class OrdersWorkbook
     public const ORDERS_TITLE = 'Замовлення';
 
     public const PAYMENT_TITLE = 'Оплата';
+
+    public const KITCHEN_TITLE = 'Для кухні';
+
+    private const KITCHEN_DAYS = ['пн', 'вів', 'середа', 'четвер', "п'ятниця"];
 
     public const JOURNAL_TITLE = 'Журнал змін';
 
@@ -147,7 +152,70 @@ class OrdersWorkbook
             ]);
         }
 
-        $this->writePayment($spreadsheetId, $report['columns'], $rows);
+        // Директор і куратори не платять — на «Оплаті» їх немає.
+        $this->writePayment(
+            $spreadsheetId,
+            $report['columns'],
+            $rows->reject(fn (array $row): bool => $row['exempt'] ?? false)->values(),
+        );
+        $this->writeKitchen($spreadsheetId, $supplier, $monday);
+    }
+
+    /** Вкладка «Для кухні» за зразком: порції по днях, сума за рядком, за днем і загальна. */
+    private function writeKitchen(string $spreadsheetId, Supplier $supplier, CarbonImmutable $monday): void
+    {
+        $sheetId = $this->sheetByTitle($spreadsheetId, self::KITCHEN_TITLE, index: 2);
+        $summary = $this->reports->kitchen($supplier, $monday);
+        $dates = array_map(fn (int $day): string => $monday->addDays($day)->toDateString(), range(0, 4));
+
+        $values = [['', ...self::KITCHEN_DAYS, '', 'Сума']];
+
+        foreach ($summary as $title => $days) {
+            $values[] = [
+                $title,
+                ...array_map(fn (string $date): int => $days[$date]['quantity'], $dates),
+                '',
+                $this->number(array_sum(array_column($days, 'amount'))),
+            ];
+        }
+
+        $dayTotals = array_map(
+            fn (string $date): float => array_sum(array_map(fn (array $days): float => $days[$date]['amount'], $summary)),
+            $dates,
+        );
+
+        $sumRow = count($values) + 1;
+        $values[] = [];
+        $values[] = ['Сума', ...array_map(fn (float $total): float|int => $this->number($total), $dayTotals)];
+        $values[] = [];
+        $values[] = [];
+        $totalRow = count($values);
+        $values[] = ['Загальна сума', $this->number(array_sum($dayTotals))];
+
+        $this->client->batchUpdate($spreadsheetId, [
+            ['repeatCell' => [
+                'range' => ['sheetId' => $sheetId],
+                'cell' => ['userEnteredFormat' => (object) []],
+                'fields' => 'userEnteredFormat',
+            ]],
+        ]);
+
+        $this->client->clearValues($spreadsheetId, self::KITCHEN_TITLE);
+        $this->client->updateValues($spreadsheetId, self::KITCHEN_TITLE, $values);
+
+        $bold = fn (array $range): array => ['repeatCell' => [
+            'range' => ['sheetId' => $sheetId, ...$range],
+            'cell' => ['userEnteredFormat' => ['textFormat' => ['bold' => true]]],
+            'fields' => 'userEnteredFormat.textFormat.bold',
+        ]];
+
+        $this->client->batchUpdate($spreadsheetId, [
+            $bold(['startRowIndex' => 0, 'endRowIndex' => 1]),
+            $bold(['startRowIndex' => $sumRow, 'endRowIndex' => $sumRow + 1]),
+            $bold(['startRowIndex' => $totalRow, 'endRowIndex' => $totalRow + 1]),
+            $bold(['startColumnIndex' => 0, 'endColumnIndex' => 1]),
+            $this->columnWidth($sheetId, 0, 1, 140),
+        ]);
     }
 
     /**
@@ -160,7 +228,7 @@ class OrdersWorkbook
      */
     private function writePayment(string $spreadsheetId, Collection $columns, Collection $rows): void
     {
-        $sheetId = $this->paymentSheet($spreadsheetId);
+        $sheetId = $this->sheetByTitle($spreadsheetId, self::PAYMENT_TITLE, index: 1);
 
         $grid = $this->client->gridColors($spreadsheetId, self::PAYMENT_TITLE);
         $userColors = $this->userColors($grid);
@@ -268,6 +336,7 @@ class OrdersWorkbook
         $debtors = Student::query()
             ->with('schoolClass')
             ->whereIn('id', $missing)
+            ->whereNull('position')
             ->get()
             ->map(fn (Student $student): array => [...$this->reports->studentColumns($student), 'amounts' => []]);
 
@@ -280,12 +349,12 @@ class OrdersWorkbook
         return floor($value) == $value ? (int) $value : round($value, 2);
     }
 
-    /** ID вкладки «Оплата» — одразу після «Замовлення». */
-    private function paymentSheet(string $spreadsheetId): int
+    /** ID вкладки; якщо її ще немає — створюємо на вказаному місці. */
+    private function sheetByTitle(string $spreadsheetId, string $title, int $index): int
     {
-        $payment = collect($this->client->sheets($spreadsheetId))->firstWhere('title', self::PAYMENT_TITLE);
+        $sheet = collect($this->client->sheets($spreadsheetId))->firstWhere('title', $title);
 
-        return $payment['sheetId'] ?? $this->addSheet($spreadsheetId, self::PAYMENT_TITLE, index: 1);
+        return $sheet['sheetId'] ?? $this->addSheet($spreadsheetId, $title, index: $index);
     }
 
     /**
@@ -365,7 +434,7 @@ class OrdersWorkbook
         $sheets = collect($this->client->sheets($spreadsheetId));
 
         if ($sheets->firstWhere('title', self::JOURNAL_TITLE) === null) {
-            // Вкладка «Замовлення» має бути першою — тож журнал додаємо в кінець, після неї й «Оплати».
+            // Вкладка «Замовлення» має бути першою — тож журнал додаємо в кінець, після робочих вкладок.
             $this->ordersSheet($spreadsheetId);
 
             $sheetId = $this->addSheet($spreadsheetId, self::JOURNAL_TITLE);
@@ -577,7 +646,7 @@ class OrdersWorkbook
             return $orders['sheetId'];
         }
 
-        $spare = $sheets->sortBy('index')->first(fn (array $sheet): bool => ! in_array($sheet['title'], [self::PAYMENT_TITLE, self::JOURNAL_TITLE], true));
+        $spare = $sheets->sortBy('index')->first(fn (array $sheet): bool => ! in_array($sheet['title'], [self::PAYMENT_TITLE, self::KITCHEN_TITLE, self::JOURNAL_TITLE], true));
 
         if ($spare === null) {
             return $this->addSheet($spreadsheetId, self::ORDERS_TITLE, index: 0);
