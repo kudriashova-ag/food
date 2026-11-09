@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\TeacherPosition;
 use App\Models\Concerns\RecordsActivity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +19,7 @@ class Student extends Model
         'user_id',
         'full_name',
         'school_class_id',
+        'position',
         'is_active',
         'consent_at',
         'consent_ip',
@@ -28,6 +30,7 @@ class Student extends Model
     protected function casts(): array
     {
         return [
+            'position' => TeacherPosition::class,
             'is_active' => 'boolean',
             'consent_at' => 'datetime',
             'first_login_at' => 'datetime',
@@ -104,7 +107,7 @@ class Student extends Model
     /** Дії адміністратора з акаунтами фіксуються в журналі (ТЗ, п. 13). */
     protected function activityAttributes(): array
     {
-        return ['full_name', 'school_class_id', 'is_active', 'consent_at'];
+        return ['full_name', 'school_class_id', 'position', 'is_active', 'consent_at'];
     }
 
     protected static function activityLabel(): string

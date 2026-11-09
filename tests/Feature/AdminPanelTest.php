@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\OrderLineStatus;
+use App\Enums\TeacherPosition;
 use App\Enums\UserRole;
 use App\Filament\Resources\Orders\Pages\ListOrders;
 use App\Filament\Resources\Orders\Pages\ViewOrder;
@@ -311,6 +312,62 @@ class AdminPanelTest extends TestCase
         $this->assertNull($teacher->school_class_id);
         $this->assertTrue($teacher->isTeacher());
         $this->assertSame('kovalenko.olha', $teacher->user->login);
+    }
+
+    public function test_teacher_is_created_with_a_position(): void
+    {
+        Livewire::test(CreateStudent::class)
+            ->fillForm([
+                'full_name' => 'Коваленко Ольга',
+                'is_teacher' => true,
+                'position' => TeacherPosition::Curator->value,
+                'is_active' => true,
+                'login' => 'kovalenko.olha',
+                'password' => 'parol123',
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame(TeacherPosition::Curator, Student::query()->firstOrFail()->position);
+    }
+
+    public function test_position_is_changed_and_cleared_when_a_teacher_becomes_a_pupil(): void
+    {
+        $class = SchoolClass::create(['grade' => 5, 'letter' => 'А', 'academic_year' => 2026]);
+        $teacher = $this->student('Коваленко Ольга', $class);
+        $teacher->update(['school_class_id' => null, 'position' => TeacherPosition::Curator]);
+
+        Livewire::test(EditStudent::class, ['record' => $teacher->getRouteKey()])
+            ->assertFormSet(['is_teacher' => true, 'position' => TeacherPosition::Curator->value])
+            ->fillForm(['position' => TeacherPosition::Director->value])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame(TeacherPosition::Director, $teacher->fresh()->position);
+
+        Livewire::test(EditStudent::class, ['record' => $teacher->getRouteKey()])
+            ->fillForm(['is_teacher' => false, 'school_class_id' => $class->id])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertNull($teacher->fresh()->position);
+        $this->assertSame($class->id, (int) $teacher->fresh()->school_class_id);
+    }
+
+    public function test_students_table_shows_and_filters_by_position(): void
+    {
+        $class = SchoolClass::create(['grade' => 5, 'letter' => 'А', 'academic_year' => 2026]);
+        $curator = $this->student('Коваленко Ольга', $class);
+        $curator->update(['school_class_id' => null, 'position' => TeacherPosition::Curator]);
+        $director = $this->student('Шевченко Ірина', $class);
+        $director->update(['school_class_id' => null, 'position' => TeacherPosition::Director]);
+        $pupil = $this->student('Іваненко Марія', $class);
+
+        Livewire::test(ListStudents::class)
+            ->assertSee('Куратор')
+            ->filterTable('position', TeacherPosition::Director->value)
+            ->assertCanSeeTableRecords([$director])
+            ->assertCanNotSeeTableRecords([$curator, $pupil]);
     }
 
     public function test_students_can_be_sorted_by_class(): void

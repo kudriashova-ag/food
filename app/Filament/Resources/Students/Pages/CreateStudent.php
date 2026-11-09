@@ -29,6 +29,7 @@ class CreateStudent extends CreateRecord
             'user_id' => $user->id,
             'full_name' => $data['full_name'],
             'school_class_id' => ($data['is_teacher'] ?? false) ? null : $data['school_class_id'],
+            'position' => ($data['is_teacher'] ?? false) ? ($data['position'] ?? null) : null,
             'is_active' => $data['is_active'] ?? true,
             'notes' => $data['notes'] ?? null,
         ]);

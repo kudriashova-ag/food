@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Students\Schemas;
 
+use App\Enums\TeacherPosition;
 use App\Models\SchoolClass;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -32,8 +33,14 @@ class StudentForm
                             ->live()
                             ->afterStateUpdated(fn ($state, callable $set) => $state
                                 ? $set('school_class_id', null)
-                                : null)
+                                : $set('position', null))
                             ->columnSpanFull(),
+
+                        Select::make('position')
+                            ->label('Посада')
+                            ->options(TeacherPosition::options())
+                            ->placeholder('Вчитель')
+                            ->visible(fn (callable $get): bool => (bool) $get('is_teacher')),
 
                         Select::make('school_class_id')
                             ->label('Клас')

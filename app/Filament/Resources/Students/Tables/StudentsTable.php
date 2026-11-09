@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Students\Tables;
 
+use App\Enums\TeacherPosition;
 use App\Models\SchoolClass;
 use App\Models\Student;
 use Filament\Actions\Action;
@@ -50,6 +51,13 @@ class StudentsTable
                             $direction,
                         )),
 
+                TextColumn::make('position')
+                    ->label('Посада')
+                    ->formatStateUsing(fn (?TeacherPosition $state): ?string => $state?->label())
+                    ->badge()
+                    ->placeholder('—')
+                    ->sortable(),
+
                 TextColumn::make('user.login')
                     ->label('Логін')
                     ->searchable()
@@ -80,6 +88,10 @@ class StudentsTable
                         ->get()
                         ->mapWithKeys(fn (SchoolClass $class): array => [$class->id => $class->title])
                         ->all()),
+
+                SelectFilter::make('position')
+                    ->label('Посада')
+                    ->options(TeacherPosition::options()),
 
                 TernaryFilter::make('is_teacher')
                     ->label('Тип')
