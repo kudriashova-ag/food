@@ -31,7 +31,7 @@ class OrdersWorkbook
 
     public const KITCHEN_TITLE = 'Для кухні';
 
-    private const KITCHEN_DAYS = ['пн', 'вів', 'середа', 'четвер', "п'ятниця"];
+    private const KITCHEN_DAYS = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця"];
 
     public const JOURNAL_TITLE = 'Журнал змін';
 
@@ -205,19 +205,67 @@ class OrdersWorkbook
         $this->client->clearValues($spreadsheetId, self::KITCHEN_TITLE);
         $this->client->updateValues($spreadsheetId, self::KITCHEN_TITLE, $values);
 
-        $bold = fn (array $range): array => ['repeatCell' => [
-            'range' => ['sheetId' => $sheetId, ...$range],
-            'cell' => ['userEnteredFormat' => ['textFormat' => ['bold' => true]]],
-            'fields' => 'userEnteredFormat.textFormat.bold',
+        $this->client->batchUpdate($spreadsheetId, $this->kitchenFormatting($sheetId, count($summary), $sumRow, $totalRow));
+    }
+
+    /**
+     * Оформлення «Для кухні», кольори як на «Оплаті». Окремі рамки: дні, колонка
+     * «Сума», рядок сум і загальна сума; порожня колонка між ними лише розділяє.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function kitchenFormatting(int $sheetId, int $sectionCount, int $sumRow, int $totalRow): array
+    {
+        $daysEnd = 1 + count(self::KITCHEN_DAYS);
+        $sumColumn = $daysEnd + 1;
+        $lastRow = 1 + $sectionCount;
+
+        $range = fn (int $startRow, int $endRow, int $startCol, int $endCol): array => [
+            'sheetId' => $sheetId,
+            'startRowIndex' => $startRow,
+            'endRowIndex' => $endRow,
+            'startColumnIndex' => $startCol,
+            'endColumnIndex' => $endCol,
+        ];
+
+        $format = fn (array $target, array $cell): array => ['repeatCell' => [
+            'range' => $target,
+            'cell' => ['userEnteredFormat' => $cell],
+            'fields' => 'userEnteredFormat('.implode(',', array_keys($cell)).')',
         ]];
 
-        $this->client->batchUpdate($spreadsheetId, [
-            $bold(['startRowIndex' => 0, 'endRowIndex' => 1]),
-            $bold(['startRowIndex' => $sumRow, 'endRowIndex' => $sumRow + 1]),
-            $bold(['startRowIndex' => $totalRow, 'endRowIndex' => $totalRow + 1]),
-            $bold(['startColumnIndex' => 0, 'endColumnIndex' => 1]),
+        $line = ['style' => 'SOLID', 'color' => $this->color('000000')];
+
+        $box = fn (array $target): array => ['updateBorders' => [
+            'range' => $target,
+            'top' => $line, 'bottom' => $line, 'left' => $line, 'right' => $line,
+            'innerHorizontal' => $line, 'innerVertical' => $line,
+        ]];
+
+        $bold = ['bold' => true];
+
+        return [
+            $format($range(0, $totalRow + 1, 0, $sumColumn + 1), ['verticalAlignment' => 'MIDDLE']),
+            $format($range(0, $sumRow + 1, 1, $sumColumn + 1), ['horizontalAlignment' => 'CENTER']),
+            $format($range($totalRow, $totalRow + 1, 1, 2), ['horizontalAlignment' => 'CENTER']),
+
+            $format($range(0, 1, 0, $daysEnd), ['backgroundColor' => $this->color(self::PAYMENT_HEADER_COLOR), 'textFormat' => $bold]),
+            $format($range(0, 1, $sumColumn, $sumColumn + 1), ['backgroundColor' => $this->color(self::PAYMENT_TOTAL_COLOR), 'textFormat' => $bold]),
+            $format($range(1, $lastRow, 0, 1), ['textFormat' => $bold]),
+            $format($range(1, $lastRow, $sumColumn, $sumColumn + 1), ['textFormat' => $bold]),
+            $format($range($sumRow, $sumRow + 1, 0, $daysEnd), ['backgroundColor' => $this->color(self::PAYMENT_HEADER_COLOR), 'textFormat' => $bold]),
+            $format($range($totalRow, $totalRow + 1, 0, 2), ['backgroundColor' => $this->color(self::PAYMENT_TOTAL_COLOR), 'textFormat' => $bold]),
+
+            $box($range(0, $lastRow, 0, $daysEnd)),
+            $box($range(0, $lastRow, $sumColumn, $sumColumn + 1)),
+            $box($range($sumRow, $sumRow + 1, 0, $daysEnd)),
+            $box($range($totalRow, $totalRow + 1, 0, 2)),
+
             $this->columnWidth($sheetId, 0, 1, 140),
-        ]);
+            $this->columnWidth($sheetId, 1, $daysEnd, 110),
+            $this->columnWidth($sheetId, $daysEnd, $sumColumn, 20),
+            $this->columnWidth($sheetId, $sumColumn, $sumColumn + 1, 110),
+        ];
     }
 
     /**

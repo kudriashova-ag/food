@@ -366,7 +366,7 @@ class GoogleSheetsSyncTest extends TestCase
             && data_get($request->data(), 'requests.0.addSheet.properties.index') === 2);
 
         $this->assertSame([
-            ['', 'пн', 'вів', 'середа', 'четвер', "п'ятниця", '', 'Сума'],
+            ['', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця", '', 'Сума'],
             ['Перше', 0, 2, 0, 0, 0, '', 45],
             ['Комплекс', 0, 1, 0, 0, 0, '', 230],
             ['Напій', 0, 0, 1, 0, 0, '', 20],
@@ -376,6 +376,17 @@ class GoogleSheetsSyncTest extends TestCase
             [],
             ['Загальна сума', 295],
         ], $this->sheetValues(OrdersWorkbook::KITCHEN_TITLE));
+
+        // Окрема рамка навколо колонки «Сума» і порожня вузька колонка перед нею.
+        Http::assertSent(fn (Request $request): bool => collect(data_get($request->data(), 'requests', []))->contains(
+            fn (array $r): bool => data_get($r, 'updateBorders.range.startColumnIndex') === 7
+                && data_get($r, 'updateBorders.range.endColumnIndex') === 8
+                && data_get($r, 'updateBorders.range.endRowIndex') === 4,
+        ));
+        Http::assertSent(fn (Request $request): bool => collect(data_get($request->data(), 'requests', []))->contains(
+            fn (array $r): bool => data_get($r, 'updateDimensionProperties.range.startIndex') === 6
+                && data_get($r, 'updateDimensionProperties.properties.pixelSize') === 20,
+        ));
     }
 
     public function test_orders_tab_shows_the_position_in_the_class_column(): void
